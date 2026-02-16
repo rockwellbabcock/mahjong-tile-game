@@ -5,13 +5,15 @@ import { Input } from "@/components/ui/input";
 import { useMultiplayerGame } from "@/hooks/use-multiplayer-game";
 import { SEAT_ORDER, type PlayerSeat, type GameMode, type RoomConfig } from "@shared/schema";
 import { useLocation } from "wouter";
-import { Users, Copy, Check, Loader2, ArrowRight, Plus, Bot } from "lucide-react";
+import { Users, Copy, Check, Loader2, ArrowRight, Plus, Bot, Gem } from "lucide-react";
+import { useTheme } from "@/hooks/use-theme";
 
 interface LobbyPageProps {
   game: ReturnType<typeof useMultiplayerGame>;
 }
 
 export default function LobbyPage({ game }: LobbyPageProps) {
+  const { theme, toggleTheme } = useTheme();
   const [name, setName] = useState(() => {
     return localStorage.getItem("mahjong-player-name") || "";
   });
@@ -172,7 +174,19 @@ export default function LobbyPage({ game }: LobbyPageProps) {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-background p-4">
       <div className="w-full max-w-md space-y-6">
-        <div className="text-center">
+        <div className="text-center relative">
+          <div className="absolute right-0 top-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={toggleTheme}
+              className={theme === "jade" ? "bg-emerald-100 dark:bg-emerald-900/30 border-emerald-300 dark:border-emerald-700" : ""}
+              data-testid="button-theme-toggle-lobby"
+            >
+              <Gem className="w-4 h-4 mr-1" />
+              {theme === "jade" ? "Jade" : "Felt"}
+            </Button>
+          </div>
           <h1 className="text-3xl font-bold text-foreground mb-1" data-testid="text-lobby-title">
             Mahjong
           </h1>

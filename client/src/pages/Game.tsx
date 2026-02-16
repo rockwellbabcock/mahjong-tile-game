@@ -1,12 +1,19 @@
+import { useEffect } from "react";
 import { useMultiplayerGame } from "@/hooks/use-multiplayer-game";
 import { MultiplayerBoard } from "@/components/MultiplayerBoard";
 import { WinOverlay } from "@/components/WinOverlay";
 import { TileStyleContext, useTileStyleState } from "@/hooks/use-tile-style";
+import { ThemeContext, useThemeState } from "@/hooks/use-theme";
 import LobbyPage from "./Lobby";
 
 export default function GamePage() {
   const game = useMultiplayerGame();
   const tileStyleValue = useTileStyleState();
+  const themeValue = useThemeState();
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("theme-jade", themeValue.theme === "jade");
+  }, [themeValue.theme]);
 
   const {
     lobbyState,
@@ -34,9 +41,11 @@ export default function GamePage() {
 
   if (lobbyState !== "playing" || !gameState) {
     return (
-      <TileStyleContext.Provider value={tileStyleValue}>
-        <LobbyPage game={game} />
-      </TileStyleContext.Provider>
+      <ThemeContext.Provider value={themeValue}>
+        <TileStyleContext.Provider value={tileStyleValue}>
+          <LobbyPage game={game} />
+        </TileStyleContext.Provider>
+      </ThemeContext.Provider>
     );
   }
 
@@ -58,36 +67,38 @@ export default function GamePage() {
     : null;
 
   return (
-    <TileStyleContext.Provider value={tileStyleValue}>
-      <div className="h-screen bg-background text-foreground overflow-hidden">
-        <MultiplayerBoard
-          gameState={gameState}
-          isMyTurn={isMyTurn}
-          activeControlSeat={activeControlSeat}
-          showHints={showHints}
-          autoShowHints={autoShowHints}
-          hints={hints}
-          winInfo={winInfo}
-          disconnectedPlayer={disconnectedPlayer}
-          timedOutPlayer={timedOutPlayer}
-          activeSuggestionPattern={activeSuggestionPattern}
-          onDraw={draw}
-          onDiscard={discard}
-          onSort={sortHand}
-          onTransfer={transferTile}
-          onToggleHints={toggleHints}
-          onToggleAutoShowHints={toggleAutoShowHints}
-          onTimeoutAction={handleTimeoutAction}
-          onSelectPattern={selectSuggestionPattern}
-        />
-
-        {winResult && (
-          <WinOverlay
-            result={winResult}
-            onPlayAgain={resetGame}
+    <ThemeContext.Provider value={themeValue}>
+      <TileStyleContext.Provider value={tileStyleValue}>
+        <div className="h-screen bg-background text-foreground overflow-hidden">
+          <MultiplayerBoard
+            gameState={gameState}
+            isMyTurn={isMyTurn}
+            activeControlSeat={activeControlSeat}
+            showHints={showHints}
+            autoShowHints={autoShowHints}
+            hints={hints}
+            winInfo={winInfo}
+            disconnectedPlayer={disconnectedPlayer}
+            timedOutPlayer={timedOutPlayer}
+            activeSuggestionPattern={activeSuggestionPattern}
+            onDraw={draw}
+            onDiscard={discard}
+            onSort={sortHand}
+            onTransfer={transferTile}
+            onToggleHints={toggleHints}
+            onToggleAutoShowHints={toggleAutoShowHints}
+            onTimeoutAction={handleTimeoutAction}
+            onSelectPattern={selectSuggestionPattern}
           />
-        )}
-      </div>
-    </TileStyleContext.Provider>
+
+          {winResult && (
+            <WinOverlay
+              result={winResult}
+              onPlayAgain={resetGame}
+            />
+          )}
+        </div>
+      </TileStyleContext.Provider>
+    </ThemeContext.Provider>
   );
 }

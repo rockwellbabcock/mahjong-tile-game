@@ -39,6 +39,36 @@
   --radius: 0.75rem;
 }
 
+/* Jade Theme – Asian-inspired elegant aesthetic */
+.theme-jade {
+  --background: 60 33% 95%;
+  --foreground: 0 0% 18%;
+
+  --card: 60 20% 97%;
+  --card-foreground: 0 0% 18%;
+  --popover: 60 20% 97%;
+  --popover-foreground: 0 0% 18%;
+
+  --primary: 180 49% 20%;
+  --primary-foreground: 60 33% 95%;
+
+  --secondary: 43 68% 52%;
+  --secondary-foreground: 0 0% 12%;
+
+  --muted: 60 15% 90%;
+  --muted-foreground: 0 0% 38%;
+
+  --accent: 180 30% 92%;
+  --accent-foreground: 180 49% 20%;
+
+  --destructive: 0 72% 50%;
+  --destructive-foreground: 60 33% 95%;
+
+  --border: 43 25% 82%;
+  --input: 43 25% 82%;
+  --ring: 43 68% 52%;
+}
+
 @layer base {
   body {
     @apply bg-background text-foreground antialiased selection:bg-primary/20;
@@ -46,6 +76,13 @@
     background-image: 
       radial-gradient(circle at center, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 100%),
       url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23166534' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  }
+
+  .theme-jade body,
+  body.theme-jade {
+    background-image:
+      radial-gradient(circle at center, rgba(245,245,240,0.9) 0%, rgba(245,245,240,0) 100%),
+      url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%231a4d4d' fill-opacity='0.04'%3E%3Cpath d='M40 10c1.1 0 2 .9 2 2v6c0 1.1-.9 2-2 2s-2-.9-2-2v-6c0-1.1.9-2 2-2zm0 50c1.1 0 2 .9 2 2v6c0 1.1-.9 2-2 2s-2-.9-2-2v-6c0-1.1.9-2 2-2zM18 32c0-1.1.9-2 2-2h6c1.1 0 2 .9 2 2s-.9 2-2 2h-6c-1.1 0-2-.9-2-2zm50 0c0-1.1.9-2 2-2h6c1.1 0 2 .9 2 2s-.9 2-2 2h-6c-1.1 0-2-.9-2-2zm-28 8a8 8 0 100-16 8 8 0 000 16z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
   }
 }
 
@@ -72,4 +109,23 @@
 
 .tile-face {
   background: linear-gradient(135deg, #fffbf2 0%, #f7f1e3 100%);
+}
+
+.theme-jade .tile-face {
+  background: linear-gradient(135deg, #fffff5 0%, #f5f0e0 100%);
+  border-color: hsl(43 40% 75%);
+}
+
+.theme-jade .tile-shadow {
+  box-shadow:
+    1px 1px 0px rgba(26,77,77,0.12),
+    2px 2px 0px rgba(26,77,77,0.06),
+    3px 3px 8px rgba(26,77,77,0.10);
+}
+
+.theme-jade .tile-3d:hover {
+  box-shadow:
+    1px 5px 0px rgba(26,77,77,0.12),
+    2px 6px 0px rgba(26,77,77,0.06),
+    4px 12px 14px rgba(26,77,77,0.16);
 }

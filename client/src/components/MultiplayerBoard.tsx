@@ -5,8 +5,9 @@ import { Tile, TileBack } from "./Tile";
 import { HintPanel } from "./HintPanel";
 import { GameTooltip } from "./GameTooltip";
 import { Button } from "@/components/ui/button";
-import { ArrowUpDown, Lightbulb, Palette, Copy, Check, Hand, WifiOff, Clock, X, Bot, Eye, ArrowLeftRight } from "lucide-react";
+import { ArrowUpDown, Lightbulb, Palette, Copy, Check, Hand, WifiOff, Clock, X, Bot, Eye, ArrowLeftRight, Gem } from "lucide-react";
 import { useTileStyle } from "@/hooks/use-tile-style";
+import { useTheme } from "@/hooks/use-theme";
 import { useState, useEffect, useMemo } from "react";
 
 interface MultiplayerBoardProps {
@@ -93,6 +94,7 @@ export function MultiplayerBoard({
   onSelectPattern,
 }: MultiplayerBoardProps) {
   const { tileStyle, cycleTileStyle } = useTileStyle();
+  const { theme, toggleTheme } = useTheme();
   const [copied, setCopied] = useState(false);
   const [transferMode, setTransferMode] = useState(false);
 
@@ -290,6 +292,16 @@ export function MultiplayerBoard({
             <Button variant="outline" size="sm" onClick={cycleTileStyle} data-testid="button-tile-style">
               <Palette className="w-4 h-4 mr-1" />
               {tileStyle === "classic" ? "Classic" : tileStyle === "emoji" ? "Modern" : "Text"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={toggleTheme}
+              className={theme === "jade" ? "bg-emerald-100 dark:bg-emerald-900/30 border-emerald-300 dark:border-emerald-700" : ""}
+              data-testid="button-theme-toggle"
+            >
+              <Gem className="w-4 h-4 mr-1" />
+              {theme === "jade" ? "Jade" : "Felt"}
             </Button>
           </div>
         </header>
