@@ -16,7 +16,7 @@ const suitColors: Record<string, string> = {
   Crak: "text-red-700 border-red-300 bg-red-50",
   Dot: "text-blue-700 border-blue-300 bg-blue-50",
   Wind: "text-slate-800 border-slate-300 bg-slate-50",
-  Dragon: "text-slate-900 border-slate-300 bg-slate-50",
+  Dragon: "text-purple-800 border-purple-300 bg-purple-50",
   Flower: "text-fuchsia-700 border-fuchsia-300 bg-fuchsia-50",
   Joker: "text-amber-700 border-amber-300 bg-amber-50",
 };
@@ -60,9 +60,9 @@ const windSymbols: Record<string, string> = {
 };
 
 const dragonDisplay: Record<string, { symbol: string; color: string }> = {
-  Red: { symbol: "\uD83D\uDD34", color: "text-red-600" },
-  Green: { symbol: "\uD83D\uDFE2", color: "text-green-600" },
-  White: { symbol: "\uD83C\uDFAF", color: "text-slate-600" },
+  Red: { symbol: "\uD83D\uDC09", color: "text-red-600" },
+  Green: { symbol: "\uD83D\uDC09", color: "text-green-600" },
+  White: { symbol: "\uD83D\uDC09", color: "text-slate-500" },
 };
 
 function renderClassic(tile: TileType, size: "sm" | "md" | "lg") {
@@ -129,7 +129,7 @@ function renderEmoji(tile: TileType, size: "sm" | "md" | "lg") {
     const info = dragonDisplay[name];
     mainContent = info?.symbol || name;
     extraClass = info?.color || "";
-    bottomLabel = name;
+    bottomLabel = `${name} Dragon`;
   } else {
     const num = tile.value as number;
     topContent = suitSymbols[tile.suit] || "";
@@ -161,7 +161,7 @@ function renderText(tile: TileType, size: "sm" | "md" | "lg") {
   if (tile.suit === "Joker") label = "Joker";
   else if (tile.suit === "Flower") label = "Flower";
   else if (tile.suit === "Wind") label = String(tile.value);
-  else if (tile.suit === "Dragon") label = String(tile.value);
+  else if (tile.suit === "Dragon") label = `${tile.value} Dragon`;
   else label = `${tile.suit} ${tile.value}`;
 
   const sizeClasses = {
