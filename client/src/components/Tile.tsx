@@ -21,6 +21,26 @@ const suitColors: Record<string, string> = {
   Joker: "text-amber-700 border-amber-300 bg-amber-50",
 };
 
+const classicSuitColors: Record<string, string> = {
+  Bam: "text-emerald-700 border-emerald-200",
+  Crak: "text-red-700 border-red-200",
+  Dot: "text-blue-700 border-blue-200",
+  Wind: "text-slate-800 border-slate-300",
+  Dragon: "text-slate-900 border-slate-300",
+  Flower: "text-fuchsia-700 border-fuchsia-200",
+  Joker: "text-amber-700 border-amber-200 bg-amber-50",
+};
+
+const classicSuitIcons: Record<string, string> = {
+  Bam: "\uD83C\uDF8B",
+  Crak: "\u842C",
+  Dot: "\u25C9",
+  Wind: "\uD83D\uDCA8",
+  Dragon: "\uD83D\uDC09",
+  Flower: "\uD83C\uDF3A",
+  Joker: "\uD83C\uDCCF",
+};
+
 const numberEmojis: Record<number, string> = {
   1: "\u4E00", 2: "\u4E8C", 3: "\u4E09", 4: "\u56DB",
   5: "\u4E94", 6: "\u516D", 7: "\u4E03", 8: "\u516B", 9: "\u4E5D",
@@ -45,46 +65,77 @@ const dragonDisplay: Record<string, { symbol: string; color: string }> = {
   White: { symbol: "\uD83C\uDFAF", color: "text-slate-600" },
 };
 
-function getTextContent(tile: TileType) {
-  if (tile.suit === "Joker") return "Joker";
-  if (tile.suit === "Flower") return "Flower";
-  if (tile.suit === "Wind") return String(tile.value);
-  if (tile.suit === "Dragon") return String(tile.value);
-  return `${tile.suit} ${tile.value}`;
-}
+function renderClassic(tile: TileType, size: "sm" | "md" | "lg") {
+  let displayValue: string | number | null = tile.value;
+  let icon = classicSuitIcons[tile.suit] || "";
 
-function getEmojiContent(tile: TileType): { top: string | null; main: string; bottom: string; extraClass: string } {
-  if (tile.suit === "Joker") {
-    return { top: null, main: "\uD83C\uDCCF", bottom: "Joker", extraClass: "" };
-  }
-  if (tile.suit === "Flower") {
-    return { top: null, main: "\uD83C\uDF38", bottom: "Flower", extraClass: "" };
-  }
-  if (tile.suit === "Wind") {
-    const name = String(tile.value);
-    return { top: null, main: windSymbols[name] || name, bottom: name, extraClass: "" };
-  }
   if (tile.suit === "Dragon") {
-    const name = String(tile.value);
-    const info = dragonDisplay[name];
-    return {
-      top: null,
-      main: info?.symbol || name,
-      bottom: name,
-      extraClass: info?.color || "",
-    };
+    if (tile.value === "Red") { displayValue = "\u4E2D"; icon = "\uD83D\uDD34"; }
+    if (tile.value === "Green") { displayValue = "\u767C"; icon = "\uD83D\uDFE2"; }
+    if (tile.value === "White") { displayValue = "\u25A1"; icon = "\uD83C\uDFAF"; }
   }
-  const num = tile.value as number;
+
+  if (tile.suit === "Wind") {
+    displayValue = String(tile.value).charAt(0);
+  }
+
+  const sizeClasses = {
+    sm: "w-8 h-12 text-xs",
+    md: "w-10 h-14 sm:w-12 sm:h-16 text-sm",
+    lg: "w-14 h-20 text-base",
+  };
+
   return {
-    top: suitSymbols[tile.suit] || "",
-    main: numberEmojis[num] || String(num),
-    bottom: `${tile.suit} ${num}`,
-    extraClass: "",
+    sizeClass: sizeClasses[size],
+    colorClass: classicSuitColors[tile.suit] || "text-slate-700 border-slate-200",
+    content: (
+      <>
+        <span className="absolute top-0.5 left-1 text-[0.6rem] font-bold opacity-60 font-mono">
+          {typeof tile.value === "number" ? tile.value : displayValue}
+        </span>
+        <div className="flex flex-col items-center gap-0.5">
+          <span className="text-xl sm:text-2xl leading-none filter drop-shadow-sm">
+            {icon}
+          </span>
+          {tile.suit !== "Joker" && tile.suit !== "Flower" && (
+            <span className="font-bold text-xs sm:text-sm leading-none">
+              {displayValue}
+            </span>
+          )}
+        </div>
+      </>
+    ),
   };
 }
 
-export function Tile({ tile, onClick, isInteractive = false, isRecent = false, size = "md" }: TileProps) {
-  const { tileStyle } = useTileStyle();
+function renderEmoji(tile: TileType, size: "sm" | "md" | "lg") {
+  let topContent: string | null = null;
+  let mainContent = "";
+  let bottomLabel = "";
+  let extraClass = "";
+
+  if (tile.suit === "Joker") {
+    mainContent = "\uD83C\uDCCF";
+    bottomLabel = "Joker";
+  } else if (tile.suit === "Flower") {
+    mainContent = "\uD83C\uDF38";
+    bottomLabel = "Flower";
+  } else if (tile.suit === "Wind") {
+    const name = String(tile.value);
+    mainContent = windSymbols[name] || name;
+    bottomLabel = name;
+  } else if (tile.suit === "Dragon") {
+    const name = String(tile.value);
+    const info = dragonDisplay[name];
+    mainContent = info?.symbol || name;
+    extraClass = info?.color || "";
+    bottomLabel = name;
+  } else {
+    const num = tile.value as number;
+    topContent = suitSymbols[tile.suit] || "";
+    mainContent = numberEmojis[num] || String(num);
+    bottomLabel = `${tile.suit} ${num}`;
+  }
 
   const sizeClasses = {
     sm: "w-12 h-16 text-[10px]",
@@ -92,9 +143,47 @@ export function Tile({ tile, onClick, isInteractive = false, isRecent = false, s
     lg: "w-16 h-20 text-sm",
   };
 
-  const isEmoji = tileStyle === "emoji";
-  const emoji = isEmoji ? getEmojiContent(tile) : null;
-  const textLabel = !isEmoji ? getTextContent(tile) : null;
+  return {
+    sizeClass: sizeClasses[size],
+    colorClass: cn(suitColors[tile.suit] || "text-slate-700 border-slate-200 bg-white", extraClass),
+    content: (
+      <>
+        {topContent && <span className="text-sm leading-none">{topContent}</span>}
+        <span className="text-lg leading-none">{mainContent}</span>
+        <span className="text-[9px] leading-none opacity-70 font-medium">{bottomLabel}</span>
+      </>
+    ),
+  };
+}
+
+function renderText(tile: TileType, size: "sm" | "md" | "lg") {
+  let label = "";
+  if (tile.suit === "Joker") label = "Joker";
+  else if (tile.suit === "Flower") label = "Flower";
+  else if (tile.suit === "Wind") label = String(tile.value);
+  else if (tile.suit === "Dragon") label = String(tile.value);
+  else label = `${tile.suit} ${tile.value}`;
+
+  const sizeClasses = {
+    sm: "w-12 h-16 text-[10px]",
+    md: "w-14 h-[72px] text-xs",
+    lg: "w-16 h-20 text-sm",
+  };
+
+  return {
+    sizeClass: sizeClasses[size],
+    colorClass: suitColors[tile.suit] || "text-slate-700 border-slate-200 bg-white",
+    content: <span className="leading-tight px-0.5">{label}</span>,
+  };
+}
+
+export function Tile({ tile, onClick, isInteractive = false, isRecent = false, size = "md" }: TileProps) {
+  const { tileStyle } = useTileStyle();
+
+  const rendered =
+    tileStyle === "classic" ? renderClassic(tile, size)
+    : tileStyle === "emoji" ? renderEmoji(tile, size)
+    : renderText(tile, size);
 
   return (
     <motion.button
@@ -107,24 +196,15 @@ export function Tile({ tile, onClick, isInteractive = false, isRecent = false, s
       whileTap={isInteractive ? { scale: 0.95 } : {}}
       transition={{ type: "spring", stiffness: 400, damping: 25 }}
       className={cn(
-        "relative flex flex-col items-center justify-center rounded-md border-2 shadow-sm select-none font-bold leading-tight text-center gap-0.5",
-        sizeClasses[size],
-        suitColors[tile.suit] || "text-slate-700 border-slate-200 bg-white",
+        "relative flex flex-col items-center justify-center rounded-md border-2 shadow-sm select-none font-bold leading-tight text-center gap-0.5 tile-face",
+        rendered.sizeClass,
+        rendered.colorClass,
         isInteractive && "cursor-pointer hover:shadow-md hover:border-current",
         !isInteractive && "cursor-default",
-        isRecent && "ring-2 ring-orange-400 ring-offset-1 ring-offset-background",
-        emoji?.extraClass
+        isRecent && "ring-2 ring-orange-400 ring-offset-1 ring-offset-background"
       )}
     >
-      {isEmoji && emoji ? (
-        <>
-          {emoji.top && <span className="text-sm leading-none">{emoji.top}</span>}
-          <span className="text-lg leading-none">{emoji.main}</span>
-          <span className="text-[9px] leading-none opacity-70 font-medium">{emoji.bottom}</span>
-        </>
-      ) : (
-        <span className="leading-tight px-0.5">{textLabel}</span>
-      )}
+      {rendered.content}
     </motion.button>
   );
 }

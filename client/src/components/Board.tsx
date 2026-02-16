@@ -5,7 +5,7 @@ import { Tile, TileBack } from "./Tile";
 import { HintPanel } from "./HintPanel";
 import { GameTooltip } from "./GameTooltip";
 import { Button } from "@/components/ui/button";
-import { RotateCcw, ArrowUpDown, Lightbulb, Type, Smile } from "lucide-react";
+import { RotateCcw, ArrowUpDown, Lightbulb, Palette } from "lucide-react";
 import { useTileStyle } from "@/hooks/use-tile-style";
 
 interface BoardProps {
@@ -47,7 +47,7 @@ export function Board({
     ? hand.filter(t => t.id !== lastDrawnTileId)
     : hand;
 
-  const { tileStyle, toggleTileStyle } = useTileStyle();
+  const { tileStyle, cycleTileStyle } = useTileStyle();
 
   function getStatusMessage() {
     if (phase === "won") return "You won! Great job!";
@@ -114,15 +114,11 @@ export function Board({
             <Button
               variant="outline"
               size="sm"
-              onClick={toggleTileStyle}
+              onClick={cycleTileStyle}
               data-testid="button-tile-style"
-              className="toggle-elevate"
             >
-              {tileStyle === "emoji" ? (
-                <><Type className="w-4 h-4 mr-1" />Text</>
-              ) : (
-                <><Smile className="w-4 h-4 mr-1" />Emoji</>
-              )}
+              <Palette className="w-4 h-4 mr-1" />
+              {tileStyle === "classic" ? "Classic" : tileStyle === "emoji" ? "Modern" : "Text"}
             </Button>
           </div>
         </header>

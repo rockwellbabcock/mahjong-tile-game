@@ -1,30 +1,34 @@
 import { createContext, useContext, useState, useCallback } from "react";
 
-export type TileStyle = "emoji" | "text";
+export type TileStyle = "classic" | "emoji" | "text";
+
+const STYLE_ORDER: TileStyle[] = ["classic", "emoji", "text"];
 
 interface TileStyleContextValue {
   tileStyle: TileStyle;
-  toggleTileStyle: () => void;
+  cycleTileStyle: () => void;
 }
 
 export const TileStyleContext = createContext<TileStyleContextValue>({
-  tileStyle: "emoji",
-  toggleTileStyle: () => {},
+  tileStyle: "classic",
+  cycleTileStyle: () => {},
 });
 
 export function useTileStyleState(): TileStyleContextValue {
   const saved = typeof window !== "undefined" ? localStorage.getItem("tile-style") : null;
-  const [tileStyle, setTileStyle] = useState<TileStyle>((saved as TileStyle) || "emoji");
+  const initial = STYLE_ORDER.includes(saved as TileStyle) ? (saved as TileStyle) : "classic";
+  const [tileStyle, setTileStyle] = useState<TileStyle>(initial);
 
-  const toggleTileStyle = useCallback(() => {
+  const cycleTileStyle = useCallback(() => {
     setTileStyle(prev => {
-      const next = prev === "emoji" ? "text" : "emoji";
+      const idx = STYLE_ORDER.indexOf(prev);
+      const next = STYLE_ORDER[(idx + 1) % STYLE_ORDER.length];
       localStorage.setItem("tile-style", next);
       return next;
     });
   }, []);
 
-  return { tileStyle, toggleTileStyle };
+  return { tileStyle, cycleTileStyle };
 }
 
 export function useTileStyle() {
