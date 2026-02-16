@@ -222,6 +222,10 @@ export function useMultiplayerGame() {
     socketRef.current?.emit("game:reset");
   }, []);
 
+  const testSiameseWin = useCallback(() => {
+    socketRef.current?.emit("game:test-siamese-win");
+  }, []);
+
   const handleTimeoutAction = useCallback((action: TimeoutAction) => {
     socketRef.current?.emit("game:timeout-action", { action });
     if (action === "wait") {
@@ -278,6 +282,7 @@ export function useMultiplayerGame() {
     toggleHints,
     toggleAutoShowHints,
     resetGame,
+    testSiameseWin,
     handleTimeoutAction,
     selectSuggestionPattern,
   };

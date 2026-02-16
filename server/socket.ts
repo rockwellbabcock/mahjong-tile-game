@@ -28,6 +28,7 @@ import {
   isCurrentTurnControlledByHuman,
   transferTile,
   executeBotTransfers,
+  testSiameseWin,
 } from "./game-engine";
 import { log } from "./index";
 
@@ -285,6 +286,17 @@ export function setupSocket(httpServer: HttpServer): Server<ClientToServerEvents
       }
 
       broadcastState(io, roomCode);
+    });
+
+    socket.on("game:test-siamese-win", () => {
+      const roomCode = playerRooms.get(socket.id);
+      if (!roomCode) return;
+
+      const success = testSiameseWin(roomCode, socket.id);
+      if (success) {
+        log(`Test Siamese win triggered in room ${roomCode}`, "socket");
+        broadcastState(io, roomCode);
+      }
     });
 
     socket.on("game:reset", () => {

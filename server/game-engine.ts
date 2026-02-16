@@ -764,6 +764,88 @@ export function resetGame(roomCode: string): boolean {
   return true;
 }
 
+export function testSiameseWin(roomCode: string, playerId: string): boolean {
+  const room = rooms.get(roomCode);
+  if (!room) return false;
+  if (!room.state.started) return false;
+  if (room.state.config.gameMode !== "2-player") return false;
+
+  const mainPlayer = room.state.players.find(p => p.id === playerId);
+  if (!mainPlayer) return false;
+
+  const controllerId = mainPlayer.controlledBy || mainPlayer.id;
+  const mySeats = room.state.players.filter(
+    p => p.id === controllerId || p.controlledBy === controllerId
+  );
+  if (mySeats.length !== 2) return false;
+
+  room.botTimers.forEach((timer) => clearTimeout(timer));
+  room.botTimers.clear();
+
+  let idCounter = 9000;
+  const makeTile = (suit: Suit, value: TileValue): Tile => ({
+    id: `test-${suit}-${value}-${idCounter++}`,
+    suit,
+    value,
+    isJoker: suit === "Joker",
+  });
+
+  const hand1: Tile[] = [
+    makeTile("Bam", 1), makeTile("Bam", 1),
+    makeTile("Bam", 2), makeTile("Bam", 2),
+    makeTile("Bam", 3), makeTile("Bam", 3),
+    makeTile("Bam", 4), makeTile("Bam", 4),
+    makeTile("Bam", 5), makeTile("Bam", 5), makeTile("Bam", 5),
+    makeTile("Bam", 6), makeTile("Bam", 6), makeTile("Bam", 6),
+  ];
+
+  const hand2: Tile[] = [
+    makeTile("Crak", 1), makeTile("Crak", 1),
+    makeTile("Crak", 2), makeTile("Crak", 2),
+    makeTile("Crak", 3), makeTile("Crak", 3),
+    makeTile("Crak", 4), makeTile("Crak", 4),
+    makeTile("Crak", 5), makeTile("Crak", 5), makeTile("Crak", 5),
+    makeTile("Crak", 6), makeTile("Crak", 6), makeTile("Crak", 6),
+  ];
+
+  mySeats[0].hand = hand1.sort(compareTiles);
+  mySeats[1].hand = hand2.sort(compareTiles);
+
+  const opponentSeats = room.state.players.filter(
+    p => p.id !== controllerId && p.controlledBy !== controllerId
+  );
+  const oppControllerId = opponentSeats[0]?.controlledBy || opponentSeats[0]?.id;
+  const oppSeats = room.state.players.filter(
+    p => p.id === oppControllerId || p.controlledBy === oppControllerId
+  );
+
+  const hand3: Tile[] = [
+    makeTile("Dot", 1), makeTile("Dot", 1),
+    makeTile("Dot", 2), makeTile("Dot", 2),
+    makeTile("Dot", 3), makeTile("Dot", 3),
+    makeTile("Dot", 4), makeTile("Dot", 4),
+    makeTile("Dot", 5), makeTile("Dot", 5), makeTile("Dot", 5),
+    makeTile("Dot", 6), makeTile("Dot", 6), makeTile("Dot", 6),
+  ];
+
+  const hand4: Tile[] = [
+    makeTile("Bam", 4), makeTile("Bam", 4), makeTile("Bam", 4),
+    makeTile("Bam", 5), makeTile("Bam", 5),
+    makeTile("Bam", 6), makeTile("Bam", 6),
+    makeTile("Bam", 7), makeTile("Bam", 7),
+    makeTile("Bam", 8), makeTile("Bam", 8),
+    makeTile("Bam", 9), makeTile("Bam", 9), makeTile("Bam", 9),
+  ];
+
+  if (oppSeats.length >= 1) oppSeats[0].hand = hand3.sort(compareTiles);
+  if (oppSeats.length >= 2) oppSeats[1].hand = hand4.sort(compareTiles);
+
+  room.state.currentTurn = mySeats[0].seat;
+  room.state.phase = "discard";
+
+  return true;
+}
+
 export function isCurrentTurnBot(roomCode: string): boolean {
   const room = rooms.get(roomCode);
   if (!room) return false;

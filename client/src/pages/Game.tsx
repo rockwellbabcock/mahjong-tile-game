@@ -35,6 +35,7 @@ export default function GamePage() {
     toggleHints,
     toggleAutoShowHints,
     resetGame,
+    testSiameseWin,
     handleTimeoutAction,
     selectSuggestionPattern,
   } = game;
@@ -89,6 +90,7 @@ export default function GamePage() {
             onToggleAutoShowHints={toggleAutoShowHints}
             onTimeoutAction={handleTimeoutAction}
             onSelectPattern={selectSuggestionPattern}
+            onTestSiameseWin={testSiameseWin}
           />
 
           {winResult && (

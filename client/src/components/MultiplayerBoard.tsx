@@ -5,7 +5,7 @@ import { Tile, TileBack } from "./Tile";
 import { HintPanel } from "./HintPanel";
 import { GameTooltip } from "./GameTooltip";
 import { Button } from "@/components/ui/button";
-import { ArrowUpDown, Lightbulb, Palette, Copy, Check, Hand, WifiOff, Clock, X, Bot, Eye, ArrowLeftRight, Gem, Layers } from "lucide-react";
+import { ArrowUpDown, Lightbulb, Palette, Copy, Check, Hand, WifiOff, Clock, X, Bot, Eye, ArrowLeftRight, Gem, Layers, FlaskConical } from "lucide-react";
 import { useTileStyle } from "@/hooks/use-tile-style";
 import { useTheme } from "@/hooks/use-theme";
 import { useState, useEffect, useMemo } from "react";
@@ -39,6 +39,7 @@ interface MultiplayerBoardProps {
   onToggleAutoShowHints: () => void;
   onTimeoutAction: (action: TimeoutAction) => void;
   onSelectPattern: (patternId: string | null) => void;
+  onTestSiameseWin?: () => void;
 }
 
 const SEAT_LABELS: Record<PlayerSeat, string> = {
@@ -92,6 +93,7 @@ export function MultiplayerBoard({
   onToggleAutoShowHints,
   onTimeoutAction,
   onSelectPattern,
+  onTestSiameseWin,
 }: MultiplayerBoardProps) {
   const { tileStyle, cycleTileStyle } = useTileStyle();
   const { theme, toggleTheme } = useTheme();
@@ -335,6 +337,18 @@ export function MultiplayerBoard({
               <Gem className="w-4 h-4" />
               <span className="hidden sm:inline ml-1">{theme === "jade" ? "Jade" : "Felt"}</span>
             </Button>
+            {isSiamese && onTestSiameseWin && gameState.phase !== "won" && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onTestSiameseWin}
+                className="border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300"
+                data-testid="button-test-siamese-win"
+              >
+                <FlaskConical className="w-4 h-4" />
+                <span className="hidden sm:inline ml-1">Test Win</span>
+              </Button>
+            )}
           </div>
         </header>
 
