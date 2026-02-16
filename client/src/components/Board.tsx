@@ -1,6 +1,9 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { type Tile as TileType } from "@shared/schema";
 import { Tile, TileBack } from "./Tile";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { RotateCcw, ArrowUpDown } from "lucide-react";
 
 interface BoardProps {
   deckCount: number;
@@ -23,152 +26,134 @@ export function Board({
   onSort,
   onReset,
 }: BoardProps) {
-  
-  // Helper: Split hand into main hand (13) and drawn tile (14th)
-  // If phase is 'discard' and we have a lastDrawnTileId, we isolate it visually
-  const drawnTile = lastDrawnTileId 
-    ? hand.find(t => t.id === lastDrawnTileId) 
+  const drawnTile = lastDrawnTileId
+    ? hand.find(t => t.id === lastDrawnTileId)
     : null;
-    
-  const mainHand = drawnTile 
+
+  const mainHand = drawnTile
     ? hand.filter(t => t.id !== lastDrawnTileId)
     : hand;
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-4 py-6 flex flex-col h-[100dvh] gap-4 md:gap-8">
-      
-      {/* --- Top Bar: Stats & Controls --- */}
-      <header className="flex items-center justify-between bg-white/80 backdrop-blur-md p-4 rounded-2xl shadow-sm border border-white/20">
-        <div className="flex items-center gap-4">
+    <div className="flex h-[100dvh] w-full" data-testid="game-board">
+      {/* Left: Main game area (hand + wall info) */}
+      <div className="flex-1 flex flex-col min-w-0">
+
+        {/* Top Bar */}
+        <header className="flex items-center justify-between gap-2 p-3 border-b border-border flex-wrap">
           <div className="flex items-center gap-3">
-             <div className="p-2 bg-primary/10 rounded-lg">
-               <TileBack count={deckCount} />
-             </div>
-             <div>
-               <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Wall</h2>
-               <p className="text-2xl font-display font-bold text-primary">{deckCount}</p>
-             </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 md:gap-4">
-          <div className="hidden md:flex flex-col items-end mr-4">
-             <span className="text-xs font-bold text-muted-foreground uppercase">Current Phase</span>
-             <span className={`text-lg font-bold ${phase === 'discard' ? 'text-orange-600' : 'text-primary'}`}>
-               {phase === 'discard' ? 'Discard a Tile' : 'Drawing...'}
-             </span>
+            <TileBack count={deckCount} />
+            <div>
+              <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider" data-testid="text-wall-label">Wall</h2>
+              <p className="text-xl font-bold text-foreground" data-testid="text-wall-count">{deckCount} tiles</p>
+            </div>
           </div>
 
-          <button 
-            onClick={onSort}
-            className="px-4 py-2 text-sm font-semibold rounded-lg bg-white border border-border shadow-sm hover:bg-slate-50 active:scale-95 transition-all text-slate-700"
-          >
-            Sort Hand
-          </button>
-          
-          <button 
-            onClick={onReset}
-            className="px-4 py-2 text-sm font-semibold rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 active:scale-95 transition-all border border-destructive/20"
-          >
-            Reset Game
-          </button>
-        </div>
-      </header>
+          <div className="flex items-center gap-2">
+            <span
+              className={`inline-block px-3 py-1 rounded-md text-xs font-bold border ${
+                phase === "discard"
+                  ? "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800"
+                  : "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800"
+              }`}
+              data-testid="text-phase"
+            >
+              {phase === "discard" ? "Click a tile to discard" : "Drawing..."}
+            </span>
+            <Button variant="outline" size="sm" onClick={onSort} data-testid="button-sort">
+              <ArrowUpDown className="w-4 h-4 mr-1" />
+              Sort
+            </Button>
+            <Button variant="outline" size="sm" onClick={onReset} data-testid="button-reset">
+              <RotateCcw className="w-4 h-4 mr-1" />
+              Reset
+            </Button>
+          </div>
+        </header>
 
-      {/* --- Middle: Discard Pile --- */}
-      <main className="flex-1 flex flex-col items-center justify-center min-h-0 relative">
-        {/* Background texture for the "table" center */}
-        <div className="absolute inset-4 bg-primary/5 rounded-3xl border-2 border-dashed border-primary/10 -z-10" />
-        
-        <div className="w-full max-w-4xl p-6 overflow-y-auto max-h-full">
-          <h3 className="text-center text-sm font-bold text-primary/40 uppercase tracking-widest mb-4">
-            Discard Pile
+        {/* Center area - empty table feel */}
+        <div className="flex-1 flex items-center justify-center p-4">
+          <p className="text-muted-foreground text-sm">Click a tile in your hand below to discard it</p>
+        </div>
+
+        {/* Bottom: Player Hand */}
+        <footer className="border-t border-border p-4" data-testid="player-hand-area">
+          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 text-center" data-testid="text-hand-label">
+            Your Hand ({hand.length} tiles)
           </h3>
-          
-          <div className="flex flex-wrap justify-center gap-2">
-            <AnimatePresence mode="popLayout">
+
+          <div className="flex items-end justify-center gap-2 w-full overflow-x-auto pb-2">
+            {/* Main Hand */}
+            <div className="flex items-center justify-center gap-1 p-3 bg-card rounded-md border border-card-border" data-testid="hand-main">
+              {mainHand.map((tile) => (
+                <Tile
+                  key={tile.id}
+                  tile={tile}
+                  isInteractive={phase === "discard"}
+                  onClick={() => onDiscard(tile.id)}
+                />
+              ))}
+            </div>
+
+            {/* Drawn Tile (separated visually) */}
+            <AnimatePresence>
+              {drawnTile && (
+                <motion.div
+                  initial={{ x: 20, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  exit={{ x: -20, opacity: 0 }}
+                  className="ml-3 flex items-center justify-center p-3 bg-orange-50 dark:bg-orange-950/30 rounded-md border border-orange-200 dark:border-orange-800 relative"
+                  data-testid="hand-drawn-tile"
+                >
+                  <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] font-bold text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900 px-2 py-0.5 rounded-md whitespace-nowrap border border-orange-200 dark:border-orange-700">
+                    NEW
+                  </span>
+                  <Tile
+                    tile={drawnTile}
+                    isInteractive={phase === "discard"}
+                    isRecent
+                    onClick={() => onDiscard(drawnTile.id)}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </footer>
+      </div>
+
+      {/* Right: Discard Pile */}
+      <aside className="w-64 md:w-72 lg:w-80 border-l border-border flex flex-col bg-card" data-testid="discard-pile-area">
+        <div className="p-3 border-b border-border">
+          <h3 className="text-sm font-bold text-foreground uppercase tracking-wider" data-testid="text-discard-label">
+            Discarded Tiles
+          </h3>
+          <p className="text-xs text-muted-foreground" data-testid="text-discard-count">
+            {discards.length} tile{discards.length !== 1 ? "s" : ""}
+          </p>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-3" data-testid="discard-pile-list">
+          {discards.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50">
+              <p className="text-sm italic">No discards yet</p>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-1.5 content-start">
               {discards.map((tile, i) => (
                 <motion.div
                   key={tile.id}
-                  layoutId={tile.id} // Matches layoutId in Hand for smooth transition!
-                  initial={{ opacity: 0, scale: 0.8, y: 20 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  transition={{ type: "spring", damping: 20, stiffness: 300 }}
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2 }}
+                  data-testid={`discard-tile-${i}`}
                 >
                   <Tile tile={tile} size="sm" />
                 </motion.div>
               ))}
-            </AnimatePresence>
-            {discards.length === 0 && (
-              <div className="w-full py-12 flex flex-col items-center justify-center text-muted-foreground/40 border-2 border-dashed border-primary/10 rounded-xl">
-                 <span className="text-4xl mb-2 opacity-50">🀄</span>
-                 <p className="font-display italic">No discards yet</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </main>
-
-      {/* --- Bottom: Player Hand --- */}
-      <footer className="w-full">
-        <div className="bg-gradient-to-t from-background via-background to-transparent pt-8 pb-4">
-          <div className="flex flex-col items-center gap-4">
-            
-            {/* Phase Indicator (Mobile only) */}
-            <div className="md:hidden text-center">
-              <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold border ${
-                phase === 'discard' 
-                  ? 'bg-orange-100 text-orange-700 border-orange-200' 
-                  : 'bg-primary/10 text-primary border-primary/20'
-              }`}>
-                {phase === 'discard' ? 'Your Turn: Discard' : 'Drawing Tile...'}
-              </span>
             </div>
-
-            {/* Hand Container */}
-            <div className="flex items-end justify-center gap-2 md:gap-4 w-full overflow-x-auto px-4 pb-4 pt-8 min-h-[120px]">
-              
-              {/* Main Hand (Sorted/Grouped) */}
-              <div className="flex items-center justify-center gap-1 md:gap-2 p-2 md:p-4 bg-white shadow-xl shadow-black/5 rounded-2xl border border-white/40 backdrop-blur-xl">
-                <AnimatePresence mode="popLayout">
-                  {mainHand.map((tile) => (
-                    <motion.div key={tile.id} layout>
-                        <Tile
-                        tile={tile}
-                        isInteractive={phase === 'discard'}
-                        onClick={() => onDiscard(tile.id)}
-                        />
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </div>
-
-              {/* The Drawn Tile (Separated) */}
-              <AnimatePresence>
-                {drawnTile && (
-                  <motion.div 
-                    initial={{ x: 20, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    exit={{ x: -20, opacity: 0 }}
-                    className="ml-2 md:ml-6 flex items-center justify-center p-2 md:p-4 bg-orange-50/80 shadow-xl shadow-orange-500/10 rounded-2xl border border-orange-200/50 backdrop-blur-xl relative"
-                  >
-                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-bold text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full whitespace-nowrap border border-orange-200">
-                      NEW
-                    </span>
-                    <Tile
-                      tile={drawnTile}
-                      isInteractive={phase === 'discard'}
-                      isRecent={true}
-                      onClick={() => onDiscard(drawnTile.id)}
-                    />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-            </div>
-          </div>
+          )}
         </div>
-      </footer>
+      </aside>
     </div>
   );
 }
