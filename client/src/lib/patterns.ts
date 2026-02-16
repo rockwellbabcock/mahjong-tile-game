@@ -77,7 +77,7 @@ function buildConcretePatterns(): ConcretePattern[] {
         { suit, value: 4, count: 2, label: `${suit} 4` },
         { suit, value: 6, count: 2, label: `${suit} 6` },
         { suit, value: 8, count: 2, label: `${suit} 8` },
-        { suit: "Flower", value: null, count: 2, label: "Flower" },
+        { suit: "any-flower", value: null, count: 2, label: "Flower" },
         { suit: "any-dragon", value: null, count: 4, label: "any Dragon" },
       ],
     });
@@ -110,7 +110,7 @@ function buildConcretePatterns(): ConcretePattern[] {
       { suit: "Wind", value: "East", count: 2, label: "East" },
       { suit: "Wind", value: "West", count: 2, label: "West" },
       { suit: "any-dragon", value: null, count: 4, label: "any Dragon" },
-      { suit: "Flower", value: null, count: 2, label: "Flower" },
+      { suit: "any-flower", value: null, count: 2, label: "Flower" },
     ],
   });
 
@@ -139,7 +139,7 @@ function buildConcretePatterns(): ConcretePattern[] {
         { suit, value: 1, count: 3, label: `${suit} 1` },
         { suit, value: 5, count: 3, label: `${suit} 5` },
         { suit, value: 9, count: 3, label: `${suit} 9` },
-        { suit: "Flower", value: null, count: 2, label: "Flower" },
+        { suit: "any-flower", value: null, count: 2, label: "Flower" },
         { suit: "any-dragon", value: null, count: 3, label: "any Dragon" },
       ],
     });

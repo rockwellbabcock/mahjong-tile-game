@@ -35,7 +35,12 @@ function generateDeck(): Tile[] {
     addTile("Dragon", dragon);
   });
 
-  addTile("Flower", null, 8);
+  ["Plum", "Orchid", "Chrysanthemum", "Bamboo"].forEach((name) => {
+    addTile("Flower", name, 1);
+  });
+  ["Spring", "Summer", "Fall", "Winter"].forEach((name) => {
+    addTile("Flower", name, 1);
+  });
   addTile("Joker", null, 8);
 
   return shuffle(deck);
