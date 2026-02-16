@@ -191,6 +191,7 @@ export interface ClientToServerEvents {
   "game:transfer": (data: { tileId: string; fromSeat: PlayerSeat; toSeat: PlayerSeat }) => void;
   "game:claim": (data: { claimType: ClaimType; tileIds: string[] }) => void;
   "game:claim-pass": () => void;
+  "game:swap-joker": (data: { myTileId: string; targetSeat: PlayerSeat; exposureIndex: number }) => void;
   "game:test-siamese-win": () => void;
   "game:charleston-select": (data: { tileId: string }) => void;
   "game:charleston-ready": () => void;
