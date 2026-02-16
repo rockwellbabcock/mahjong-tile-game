@@ -4,11 +4,14 @@ import { Button } from "@/components/ui/button";
 import { RotateCcw, Trophy } from "lucide-react";
 
 interface WinOverlayProps {
-  result: PatternMatch;
+  result: PatternMatch & { winnerName?: string; winnerSeat?: string; isMe?: boolean };
   onPlayAgain: () => void;
 }
 
 export function WinOverlay({ result, onPlayAgain }: WinOverlayProps) {
+  const isMultiplayer = result.winnerName !== undefined;
+  const isMe = result.isMe ?? true;
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -32,29 +35,38 @@ export function WinOverlay({ result, onPlayAgain }: WinOverlayProps) {
           className="text-2xl font-bold text-foreground mb-2"
           data-testid="text-win-title"
         >
-          MAHJONG!
+          {isMe ? "MAHJONG!" : "Game Over"}
         </h2>
 
         <p
           className="text-lg font-semibold text-amber-700 dark:text-amber-400 mb-1"
           data-testid="text-win-pattern"
         >
-          You won with: {result.patternName}
+          {isMultiplayer
+            ? isMe
+              ? `You won with: ${result.patternName}`
+              : `${result.winnerName} (${result.winnerSeat}) won with: ${result.patternName}`
+            : `You won with: ${result.patternName}`
+          }
         </p>
 
-        <p
-          className="text-sm text-muted-foreground mb-6"
-          data-testid="text-win-description"
-        >
-          {result.description}
-        </p>
+        {result.description && (
+          <p
+            className="text-sm text-muted-foreground mb-6"
+            data-testid="text-win-description"
+          >
+            {result.description}
+          </p>
+        )}
 
-        <div className="mb-6 text-left bg-muted/50 rounded-md p-4 text-sm text-muted-foreground" data-testid="text-win-tiles">
-          <p className="font-semibold text-foreground mb-1">Your winning tiles:</p>
-          {result.matched.map((m, i) => (
-            <p key={i}>{m}</p>
-          ))}
-        </div>
+        {result.matched.length > 0 && (
+          <div className="mb-6 text-left bg-muted/50 rounded-md p-4 text-sm text-muted-foreground" data-testid="text-win-tiles">
+            <p className="font-semibold text-foreground mb-1">Winning tiles:</p>
+            {result.matched.map((m, i) => (
+              <p key={i}>{m}</p>
+            ))}
+          </div>
+        )}
 
         <Button onClick={onPlayAgain} data-testid="button-play-again">
           <RotateCcw className="w-4 h-4 mr-2" />

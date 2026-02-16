@@ -1,60 +1,59 @@
-import { useEffect } from "react";
-import { useGameLogic } from "@/hooks/use-game-logic";
-import { Board } from "@/components/Board";
+import { useMultiplayerGame } from "@/hooks/use-multiplayer-game";
+import { MultiplayerBoard } from "@/components/MultiplayerBoard";
 import { WinOverlay } from "@/components/WinOverlay";
 import { TileStyleContext, useTileStyleState } from "@/hooks/use-tile-style";
+import LobbyPage from "./Lobby";
 
 export default function GamePage() {
-  const {
-    deck,
-    hand,
-    discards,
-    phase,
-    lastDrawnTileId,
-    winResult,
-    showHints,
-    hints,
-    initGame,
-    discardTile,
-    sortHand,
-    toggleHints,
-    testWin,
-  } = useGameLogic();
-
+  const game = useMultiplayerGame();
   const tileStyleValue = useTileStyleState();
 
-  useEffect(() => {
-    initGame();
-  }, [initGame]);
+  const { lobbyState, gameState, isMyTurn, showHints, hints, winInfo, draw, discard, sortHand, toggleHints, resetGame } = game;
 
-  if (deck.length === 0 && hand.length === 0) {
+  if (lobbyState !== "playing" || !gameState) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-background">
-        <p className="text-xl text-foreground font-bold">Shuffling Tiles...</p>
-      </div>
+      <TileStyleContext.Provider value={tileStyleValue}>
+        <LobbyPage game={game} />
+      </TileStyleContext.Provider>
     );
   }
+
+  const winResult = winInfo
+    ? {
+        patternId: "win",
+        patternName: winInfo.patternName,
+        description: winInfo.description,
+        isComplete: true,
+        tilesAway: 0,
+        matched: [],
+        missing: [],
+        hint: "",
+        winnerName: winInfo.winnerName,
+        winnerSeat: winInfo.winnerSeat,
+        isMe: winInfo.winnerId === gameState.players.find(p => p.seat === gameState.mySeat)?.id,
+      }
+    : null;
 
   return (
     <TileStyleContext.Provider value={tileStyleValue}>
       <div className="h-screen bg-background text-foreground overflow-hidden">
-        <Board
-          deckCount={deck.length}
-          discards={discards}
-          hand={hand}
-          phase={phase}
-          lastDrawnTileId={lastDrawnTileId}
+        <MultiplayerBoard
+          gameState={gameState}
+          isMyTurn={isMyTurn}
           showHints={showHints}
           hints={hints}
-          onDiscard={discardTile}
+          winInfo={winInfo}
+          onDraw={draw}
+          onDiscard={discard}
           onSort={sortHand}
-          onReset={initGame}
           onToggleHints={toggleHints}
-          onTestWin={testWin}
         />
 
         {winResult && (
-          <WinOverlay result={winResult} onPlayAgain={initGame} />
+          <WinOverlay
+            result={winResult}
+            onPlayAgain={resetGame}
+          />
         )}
       </div>
     </TileStyleContext.Provider>

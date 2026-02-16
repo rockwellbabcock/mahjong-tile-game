@@ -21,8 +21,10 @@ export type Suit = "Bam" | "Crak" | "Dot" | "Wind" | "Dragon" | "Flower" | "Joke
 export type WindValue = "North" | "South" | "East" | "West";
 export type DragonValue = "Green" | "Red" | "White";
 
-// Value can be a number (1-9) or a specific string for special tiles
-export type TileValue = number | WindValue | DragonValue | null; 
+export type FlowerName = "Plum" | "Orchid" | "Chrysanthemum" | "Bamboo";
+export type SeasonName = "Spring" | "Summer" | "Fall" | "Winter";
+
+export type TileValue = number | WindValue | DragonValue | FlowerName | SeasonName | null; 
 
 export interface Tile {
   id: string; // Unique ID for React keys
@@ -31,4 +33,76 @@ export interface Tile {
   isJoker?: boolean;
 }
 
-export type GamePhase = "draw" | "discard";
+export type GamePhase = "draw" | "discard" | "won";
+
+export type PlayerSeat = "East" | "South" | "West" | "North";
+export const SEAT_ORDER: PlayerSeat[] = ["East", "South", "West", "North"];
+
+export type ClaimType = "pung" | "kong" | "quint" | "mahjong";
+
+export interface PlayerState {
+  id: string;
+  name: string;
+  seat: PlayerSeat;
+  hand: Tile[];
+  exposures: Tile[][];
+  connected: boolean;
+}
+
+export interface RoomState {
+  roomCode: string;
+  players: PlayerState[];
+  currentTurn: PlayerSeat;
+  phase: GamePhase;
+  wallCount: number;
+  discardPile: Tile[];
+  lastDiscard: Tile | null;
+  lastDiscardedBy: PlayerSeat | null;
+  winnerId: string | null;
+  winnerSeat: PlayerSeat | null;
+  started: boolean;
+}
+
+export interface ClientRoomView {
+  roomCode: string;
+  players: {
+    id: string;
+    name: string;
+    seat: PlayerSeat;
+    handCount: number;
+    exposures: Tile[][];
+    connected: boolean;
+  }[];
+  myHand: Tile[];
+  mySeat: PlayerSeat;
+  currentTurn: PlayerSeat;
+  phase: GamePhase;
+  wallCount: number;
+  discardPile: Tile[];
+  lastDiscard: Tile | null;
+  lastDiscardedBy: PlayerSeat | null;
+  winnerId: string | null;
+  winnerSeat: PlayerSeat | null;
+  started: boolean;
+}
+
+export interface ServerToClientEvents {
+  "room:created": (data: { roomCode: string; seat: PlayerSeat }) => void;
+  "room:joined": (data: { roomCode: string; seat: PlayerSeat; playerName: string }) => void;
+  "room:player-joined": (data: { playerName: string; seat: PlayerSeat; playerCount: number }) => void;
+  "room:player-left": (data: { playerName: string; seat: PlayerSeat; playerCount: number }) => void;
+  "game:state": (state: ClientRoomView) => void;
+  "game:started": () => void;
+  "game:win": (data: { winnerId: string; winnerName: string; winnerSeat: PlayerSeat; patternName: string; description: string }) => void;
+  "error": (data: { message: string }) => void;
+}
+
+export interface ClientToServerEvents {
+  "room:create": (data: { playerName: string }) => void;
+  "room:join": (data: { roomCode: string; playerName: string }) => void;
+  "game:draw": () => void;
+  "game:discard": (data: { tileId: string }) => void;
+  "game:sort": () => void;
+  "game:reset": () => void;
+  "game:claim": (data: { claimType: ClaimType; tileIds: string[] }) => void;
+}

@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is a single-player Mahjong tile game built as a full-stack web application. The game logic runs primarily on the client side, with a minimal server backend for optional game state persistence. Players interact with a hand of Mahjong tiles through draw and discard phases. The app features smooth animations via Framer Motion and a green felt-themed UI design inspired by traditional Mahjong tables.
+This is a real-time 4-player multiplayer American Mahjong tile game. Players create or join game rooms via 6-character codes, and the game features turn-based play (East->South->West->North), synchronized game state via Socket.io, win detection with multiple valid patterns, beginner-friendly hints, and customizable tile display styles.
 
 ## User Preferences
 
@@ -14,17 +14,18 @@ Preferred communication style: Simple, everyday language.
 
 - **Framework**: React with TypeScript, bundled by Vite
 - **Routing**: `wouter` for lightweight client-side routing (single page at `/` for the game)
-- **State Management**: Game state is managed entirely client-side via a custom React hook (`use-game-logic.ts`). TanStack React Query is available for server data fetching but the core game doesn't depend on it.
+- **State Management**: Game state is server-authoritative, synchronized via Socket.io. Client uses `useMultiplayerGame` hook for real-time state management. TanStack React Query is available for additional data fetching.
 - **UI Components**: shadcn/ui component library (new-york style) built on Radix UI primitives with Tailwind CSS
 - **Animations**: Framer Motion for tile movement and interactions
 - **Styling**: Tailwind CSS with CSS variables for theming. The theme uses a green felt color palette. Custom fonts: DM Sans (body), Playfair Display (display), JetBrains Mono (mono).
 - **Path aliases**: `@/` maps to `client/src/`, `@shared/` maps to `shared/`, `@assets/` maps to `attached_assets/`
 
-### Backend (Express 5)
+### Backend (Express 5 + Socket.io)
 
 - **Runtime**: Node.js with Express 5, written in TypeScript, run via `tsx`
-- **API Design**: Minimal REST API. Route definitions are shared between client and server via `shared/routes.ts` using Zod schemas for input validation.
-- **Current endpoints**: `POST /api/games` to save game state (optional feature)
+- **Socket.io**: Real-time multiplayer via `server/socket.ts` - handles room creation/joining, turn management, game state broadcasting
+- **Game Engine**: `server/game-engine.ts` - server-authoritative game logic (deck, dealing, drawing, discarding, win detection)
+- **API Design**: REST API via `shared/routes.ts` + Socket.io events defined in `shared/schema.ts`
 - **Dev server**: Vite dev server is integrated as middleware during development with HMR support
 - **Production**: Client is built to `dist/public`, server is bundled with esbuild to `dist/index.cjs`
 
@@ -51,10 +52,11 @@ Preferred communication style: Simple, everyday language.
 
 ### Game Architecture
 
-- The Mahjong deck consists of: numbered suits (Bam, Crak, Dot: 1-9, 4 each), Winds (4 each), Dragons (4 each), 8 Flowers, 8 Jokers — standard American Mahjong set (152 tiles)
-- Game phases: "draw" (auto-draws after 500ms), "discard" (player picks a tile to remove), "won" (winning hand detected)
-- All game logic (deck generation, shuffling, drawing, discarding, sorting) lives in `client/src/hooks/use-game-logic.ts`
-- The `Board` component renders the wall count, discard pile, player hand, action buttons, status bar, and hint panel
+- The Mahjong deck consists of: numbered suits (Bam, Crak, Dot: 1-9, 4 each), Winds (4 each), Dragons (4 each), 4 named Flowers (Plum, Orchid, Chrysanthemum, Bamboo), 4 Seasons (Spring, Summer, Fall, Winter), 8 Jokers — standard American Mahjong set (152 tiles)
+- Game phases: "draw" (player clicks Draw button), "discard" (player picks a tile to remove), "won" (winning hand detected)
+- Server-side game logic (deck generation, shuffling, drawing, discarding, sorting) lives in `server/game-engine.ts`
+- The `MultiplayerBoard` component renders the wall count, other players' info, discard pile, player hand, action buttons, status bar, and hint panel
+- The `Board` component (legacy single-player) is still available
 - Individual tiles are rendered by the `Tile` component with suit-based color coding
 - **Pattern Engine** (`client/src/lib/patterns.ts`): Defines ~21 American MahJong winning patterns (consecutive runs, even/odd patterns, seven pairs, winds & dragons, three triples) across all 3 numbered suits. Supports "any Dragon" and "any Flower" flexible matching plus Joker wildcards.
 - **Win Detection**: After each draw, `checkForWin()` verifies if hand (must be exactly 14 tiles) matches any pattern. If so, phase becomes "won" and `WinOverlay` component displays.
