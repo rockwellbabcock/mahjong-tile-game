@@ -20,26 +20,68 @@ const suitColors: Record<string, string> = {
   Joker: "text-amber-700 border-amber-300 bg-amber-50",
 };
 
+const numberEmojis: Record<number, string> = {
+  1: "\u4E00", 2: "\u4E8C", 3: "\u4E09", 4: "\u56DB",
+  5: "\u4E94", 6: "\u516D", 7: "\u4E03", 8: "\u516B", 9: "\u4E5D",
+};
+
+const suitSymbols: Record<string, string> = {
+  Bam: "\uD83C\uDF8D",
+  Crak: "\uD83C\uDF1F",
+  Dot: "\uD83D\uDD35",
+};
+
+const windSymbols: Record<string, string> = {
+  North: "\u2B06\uFE0F",
+  South: "\u2B07\uFE0F",
+  East: "\u27A1\uFE0F",
+  West: "\u2B05\uFE0F",
+};
+
+const dragonDisplay: Record<string, { symbol: string; color: string }> = {
+  Red: { symbol: "\uD83D\uDD34", color: "text-red-600" },
+  Green: { symbol: "\uD83D\uDFE2", color: "text-green-600" },
+  White: { symbol: "\uD83C\uDFAF", color: "text-slate-600" },
+};
+
 export function Tile({ tile, onClick, isInteractive = false, isRecent = false, size = "md" }: TileProps) {
-  let displayLabel = "";
-
-  if (tile.suit === "Joker") {
-    displayLabel = "Joker";
-  } else if (tile.suit === "Flower") {
-    displayLabel = "Flower";
-  } else if (tile.suit === "Wind") {
-    displayLabel = String(tile.value);
-  } else if (tile.suit === "Dragon") {
-    displayLabel = String(tile.value);
-  } else {
-    displayLabel = `${tile.suit} ${tile.value}`;
-  }
-
   const sizeClasses = {
     sm: "w-12 h-16 text-[10px]",
     md: "w-14 h-[72px] text-xs",
     lg: "w-16 h-20 text-sm",
   };
+
+  let topContent: string | null = null;
+  let mainContent: string = "";
+  let bottomLabel: string = "";
+  let extraClass = "";
+
+  if (tile.suit === "Joker") {
+    mainContent = "\uD83C\uDCCF";
+    bottomLabel = "Joker";
+  } else if (tile.suit === "Flower") {
+    mainContent = "\uD83C\uDF38";
+    bottomLabel = "Flower";
+  } else if (tile.suit === "Wind") {
+    const windName = String(tile.value);
+    mainContent = windSymbols[windName] || windName;
+    bottomLabel = windName;
+  } else if (tile.suit === "Dragon") {
+    const dragonName = String(tile.value);
+    const info = dragonDisplay[dragonName];
+    if (info) {
+      mainContent = info.symbol;
+      extraClass = info.color;
+    } else {
+      mainContent = dragonName;
+    }
+    bottomLabel = dragonName;
+  } else {
+    const num = tile.value as number;
+    topContent = suitSymbols[tile.suit] || "";
+    mainContent = numberEmojis[num] || String(num);
+    bottomLabel = `${tile.suit} ${num}`;
+  }
 
   return (
     <motion.button
@@ -52,15 +94,18 @@ export function Tile({ tile, onClick, isInteractive = false, isRecent = false, s
       whileTap={isInteractive ? { scale: 0.95 } : {}}
       transition={{ type: "spring", stiffness: 400, damping: 25 }}
       className={cn(
-        "relative flex flex-col items-center justify-center rounded-md border-2 shadow-sm select-none font-bold leading-tight text-center",
+        "relative flex flex-col items-center justify-center rounded-md border-2 shadow-sm select-none font-bold leading-tight text-center gap-0.5",
         sizeClasses[size],
         suitColors[tile.suit] || "text-slate-700 border-slate-200 bg-white",
         isInteractive && "cursor-pointer hover:shadow-md hover:border-current",
         !isInteractive && "cursor-default",
-        isRecent && "ring-2 ring-orange-400 ring-offset-1 ring-offset-background"
+        isRecent && "ring-2 ring-orange-400 ring-offset-1 ring-offset-background",
+        extraClass
       )}
     >
-      <span className="leading-tight">{displayLabel}</span>
+      {topContent && <span className="text-sm leading-none">{topContent}</span>}
+      <span className="text-lg leading-none">{mainContent}</span>
+      <span className="text-[9px] leading-none opacity-70 font-medium">{bottomLabel}</span>
     </motion.button>
   );
 }
