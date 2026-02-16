@@ -1,0 +1,22 @@
+American Mah Jongg is played by four players using 152 tiles and a unique, annually updated National Mah Jongg League (NMJL) scorecard that dictates winning hands. 
+1. Setup and Dealing
+The Tiles: The set includes three suits (Dots, Bams, Cracks), plus Winds (North, South, East, West), Dragons, Flowers, and 8 Jokers.
+Building the Walls: Each player builds a "wall" in front of their rack, 19 tiles long and 2 tiles high.
+The Deal: East (the dealer) rolls dice to break the wall and deals tiles until everyone has 13, except East, who starts with 14. 
+2. The Charleston (Tile Exchange)
+Unique to American Mah Jongg, this pre-game ritual allows players to trade unwanted tiles: 
+First Pass: Pass 3 tiles to the Right, then Across, then Left.
+Second Pass: (Optional if all agree) Pass 3 tiles to the Left, then Across, then Right.
+Blind Pass: On the final pass of either Charleston, you may "steal" up to 3 tiles from what you receive and pass them on without looking at them.
+Courtesy Pass: An optional final trade of 0–3 tiles with the player sitting across from you. 
+3. Gameplay and Calling Tiles
+Play proceeds counter-clockwise. You either draw a tile from the wall or call the most recently discarded tile. 
+Rules for Calling:
+You can only call a tile to complete a Pung (3), Kong (4), Quint (5), or Sextet (6).
+You cannot call for a single tile or a pair unless it completes your entire Mah Jongg hand.
+Once you call a tile, you must "expose" that set on top of your rack.
+Jokers: These are wild and can substitute for any tile in a set of 3 or more. If a player has an exposed joker, you can swap it for the real tile if you have it in your hand. 
+4. Winning and Scoring
+Mah Jongg: To win, you must be the first to collect 14 tiles that exactly match a combination on the current year’s NMJL Scorecard.
+Payouts: Points are paid in cash or chips based on the card's value. Picking your own winning tile ("self-draw") or winning with a "jokerless" hand often doubles your payout.
+Dead Hands: Your hand is declared "dead" (you stop playing for that round) if you have an incorrect number of tiles or an impossible exposure. 
