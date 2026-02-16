@@ -127,9 +127,9 @@ function renderClassic(tile: TileType, size: "sm" | "md" | "lg") {
   }
 
   const sizeClasses = {
-    sm: "w-8 h-12 text-xs",
-    md: "w-10 h-14 sm:w-12 sm:h-16 text-sm",
-    lg: "w-14 h-20 text-base",
+    sm: "w-12 h-16 text-[10px]",
+    md: "w-14 h-[72px] text-xs",
+    lg: "w-16 h-20 text-sm",
   };
 
   let labelContent: string | null = null;
