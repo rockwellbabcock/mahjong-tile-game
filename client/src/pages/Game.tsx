@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useGameLogic } from "@/hooks/use-game-logic";
 import { Board } from "@/components/Board";
 import { WinOverlay } from "@/components/WinOverlay";
+import { TileStyleContext, useTileStyleState } from "@/hooks/use-tile-style";
 
 export default function GamePage() {
   const {
@@ -19,6 +20,8 @@ export default function GamePage() {
     toggleHints,
   } = useGameLogic();
 
+  const tileStyleValue = useTileStyleState();
+
   useEffect(() => {
     initGame();
   }, [initGame]);
@@ -32,24 +35,26 @@ export default function GamePage() {
   }
 
   return (
-    <div className="h-screen bg-background text-foreground overflow-hidden">
-      <Board
-        deckCount={deck.length}
-        discards={discards}
-        hand={hand}
-        phase={phase}
-        lastDrawnTileId={lastDrawnTileId}
-        showHints={showHints}
-        hints={hints}
-        onDiscard={discardTile}
-        onSort={sortHand}
-        onReset={initGame}
-        onToggleHints={toggleHints}
-      />
+    <TileStyleContext.Provider value={tileStyleValue}>
+      <div className="h-screen bg-background text-foreground overflow-hidden">
+        <Board
+          deckCount={deck.length}
+          discards={discards}
+          hand={hand}
+          phase={phase}
+          lastDrawnTileId={lastDrawnTileId}
+          showHints={showHints}
+          hints={hints}
+          onDiscard={discardTile}
+          onSort={sortHand}
+          onReset={initGame}
+          onToggleHints={toggleHints}
+        />
 
-      {winResult && (
-        <WinOverlay result={winResult} onPlayAgain={initGame} />
-      )}
-    </div>
+        {winResult && (
+          <WinOverlay result={winResult} onPlayAgain={initGame} />
+        )}
+      </div>
+    </TileStyleContext.Provider>
   );
 }

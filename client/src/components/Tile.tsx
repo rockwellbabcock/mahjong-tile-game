@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { type Tile as TileType } from "@shared/schema";
 import { cn } from "@/lib/utils";
+import { useTileStyle } from "@/hooks/use-tile-style";
 
 interface TileProps {
   tile: TileType;
@@ -44,44 +45,56 @@ const dragonDisplay: Record<string, { symbol: string; color: string }> = {
   White: { symbol: "\uD83C\uDFAF", color: "text-slate-600" },
 };
 
+function getTextContent(tile: TileType) {
+  if (tile.suit === "Joker") return "Joker";
+  if (tile.suit === "Flower") return "Flower";
+  if (tile.suit === "Wind") return String(tile.value);
+  if (tile.suit === "Dragon") return String(tile.value);
+  return `${tile.suit} ${tile.value}`;
+}
+
+function getEmojiContent(tile: TileType): { top: string | null; main: string; bottom: string; extraClass: string } {
+  if (tile.suit === "Joker") {
+    return { top: null, main: "\uD83C\uDCCF", bottom: "Joker", extraClass: "" };
+  }
+  if (tile.suit === "Flower") {
+    return { top: null, main: "\uD83C\uDF38", bottom: "Flower", extraClass: "" };
+  }
+  if (tile.suit === "Wind") {
+    const name = String(tile.value);
+    return { top: null, main: windSymbols[name] || name, bottom: name, extraClass: "" };
+  }
+  if (tile.suit === "Dragon") {
+    const name = String(tile.value);
+    const info = dragonDisplay[name];
+    return {
+      top: null,
+      main: info?.symbol || name,
+      bottom: name,
+      extraClass: info?.color || "",
+    };
+  }
+  const num = tile.value as number;
+  return {
+    top: suitSymbols[tile.suit] || "",
+    main: numberEmojis[num] || String(num),
+    bottom: `${tile.suit} ${num}`,
+    extraClass: "",
+  };
+}
+
 export function Tile({ tile, onClick, isInteractive = false, isRecent = false, size = "md" }: TileProps) {
+  const { tileStyle } = useTileStyle();
+
   const sizeClasses = {
     sm: "w-12 h-16 text-[10px]",
     md: "w-14 h-[72px] text-xs",
     lg: "w-16 h-20 text-sm",
   };
 
-  let topContent: string | null = null;
-  let mainContent: string = "";
-  let bottomLabel: string = "";
-  let extraClass = "";
-
-  if (tile.suit === "Joker") {
-    mainContent = "\uD83C\uDCCF";
-    bottomLabel = "Joker";
-  } else if (tile.suit === "Flower") {
-    mainContent = "\uD83C\uDF38";
-    bottomLabel = "Flower";
-  } else if (tile.suit === "Wind") {
-    const windName = String(tile.value);
-    mainContent = windSymbols[windName] || windName;
-    bottomLabel = windName;
-  } else if (tile.suit === "Dragon") {
-    const dragonName = String(tile.value);
-    const info = dragonDisplay[dragonName];
-    if (info) {
-      mainContent = info.symbol;
-      extraClass = info.color;
-    } else {
-      mainContent = dragonName;
-    }
-    bottomLabel = dragonName;
-  } else {
-    const num = tile.value as number;
-    topContent = suitSymbols[tile.suit] || "";
-    mainContent = numberEmojis[num] || String(num);
-    bottomLabel = `${tile.suit} ${num}`;
-  }
+  const isEmoji = tileStyle === "emoji";
+  const emoji = isEmoji ? getEmojiContent(tile) : null;
+  const textLabel = !isEmoji ? getTextContent(tile) : null;
 
   return (
     <motion.button
@@ -100,12 +113,18 @@ export function Tile({ tile, onClick, isInteractive = false, isRecent = false, s
         isInteractive && "cursor-pointer hover:shadow-md hover:border-current",
         !isInteractive && "cursor-default",
         isRecent && "ring-2 ring-orange-400 ring-offset-1 ring-offset-background",
-        extraClass
+        emoji?.extraClass
       )}
     >
-      {topContent && <span className="text-sm leading-none">{topContent}</span>}
-      <span className="text-lg leading-none">{mainContent}</span>
-      <span className="text-[9px] leading-none opacity-70 font-medium">{bottomLabel}</span>
+      {isEmoji && emoji ? (
+        <>
+          {emoji.top && <span className="text-sm leading-none">{emoji.top}</span>}
+          <span className="text-lg leading-none">{emoji.main}</span>
+          <span className="text-[9px] leading-none opacity-70 font-medium">{emoji.bottom}</span>
+        </>
+      ) : (
+        <span className="leading-tight px-0.5">{textLabel}</span>
+      )}
     </motion.button>
   );
 }
