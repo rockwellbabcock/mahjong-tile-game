@@ -53,7 +53,7 @@ Preferred communication style: Simple, everyday language.
 ### Game Architecture
 
 - The Mahjong deck consists of: numbered suits (Bam, Crak, Dot: 1-9, 4 each), Winds (4 each), Dragons (4 each), 4 named Flowers (Plum, Orchid, Chrysanthemum, Bamboo), 4 Seasons (Spring, Summer, Fall, Winter), 8 Jokers — standard American Mahjong set (152 tiles)
-- Game phases: "draw" (player clicks Draw button), "discard" (player picks a tile to remove), "won" (winning hand detected)
+- Game phases: "charleston" (pre-game tile passing), "draw" (player clicks Draw button), "discard" (player picks a tile to remove), "calling" (other players decide to claim or pass on a discard), "won" (winning hand detected)
 - Server-side game logic (deck generation, shuffling, drawing, discarding, sorting) lives in `server/game-engine.ts`
 - The `MultiplayerBoard` component renders the wall count, other players' info, discard pile, player hand, action buttons, status bar, and hint panel
 - The `Board` component (legacy single-player) is still available
@@ -63,7 +63,9 @@ Preferred communication style: Simple, everyday language.
 - **Hint System** (`client/src/components/HintPanel.tsx`): Shows closest patterns by tiles-away count, expandable detail list
 - **Beginner UI**: Status bar with contextual messages, `GameTooltip` component wraps game terms (Wall, Hand, Discard, Mahjong) with hover explanations
 - **Reconnection System**: When a player disconnects mid-game, their seat is reserved for 60 seconds. A rejoin token (per-player, generated at game start) is stored in sessionStorage. On page refresh, the client auto-attempts rejoin using the token. Other players see a "Waiting for [name] to reconnect..." banner with countdown. After 60s timeout, a dialog offers "End Game" or "Keep Waiting" options. Server-authoritative: the `game:ended` event clears all client state.
-- **Siamese Mahjong (2-Player Mode)**: Implements real Siamese rules — turns alternate between 2 players (not 4 seats). Each player controls 2 racks. Tiles drawn from a shared "Pool" (not "Wall"). Transfer Mode allows moving tiles between racks during discard phase. Bot AI uses `executeBotTransfers()` to optimize both racks before discarding. UI displays both racks side-by-side with "Rack 1" / "Rack 2" labels. Terminology adapts: Wall→Pool, Hand→Rack throughout Siamese UI.
+- **Siamese Mahjong (2-Player Mode)**: Implements real Siamese rules — turns alternate between 2 players (not 4 seats). Each player controls 2 racks. Tiles drawn from a shared "Pool" (not "Wall"). Transfer Mode allows moving tiles between racks during draw or discard phase. Bot AI uses `executeBotTransfers()` to optimize both racks before discarding. UI displays both racks side-by-side with "Rack 1" / "Rack 2" labels. Terminology adapts: Wall→Pool, Hand→Rack throughout Siamese UI.
+- **Charleston** (`client/src/components/CharlestonOverlay.tsx`): Pre-game tile passing ritual for 4-player mode. 6-pass system: first Charleston (right/across/left), optional second Charleston (left/across/right). Players select 3 tiles per pass, all pass simultaneously. Bots auto-select. Second Charleston requires unanimous vote. CharlestonState tracks round, passIndex, direction, selections, readyPlayers, votes. Socket events: charleston-select, charleston-ready, charleston-skip, charleston-vote.
+- **Calling Discards** (`client/src/components/CallingOverlay.tsx`): After a discard in 4-player mode, game enters "calling" phase. Other players can claim with Pung (2 matching), Kong (3 matching), Quint (4 matching), or Mahjong. Priority: Mahjong > Quint > Kong > Pung > turn order. Claimed tiles form exposure groups displayed on player cards. Bots auto-decide claims. CallingState tracks discardedTile, claims, passedPlayers. Socket events: game:claim, game:claim-pass.
 
 ## External Dependencies
 

@@ -158,6 +158,9 @@ export function MultiplayerBoard({
       if (gameState.phase === "draw") return `${prefix} - click Draw to pick a tile from the wall.`;
       return `${prefix} - pick a tile from your hand to discard it.`;
     }
+    if (gameState.phase === "calling") {
+      return "A tile was discarded - decide if you want to claim it or pass.";
+    }
     const currentPlayer = gameState.players.find(p => p.seat === gameState.currentTurn);
     if (gameState.gameMode === "2-player" && currentPlayer) {
       const controller = currentPlayer.controlledBy
@@ -270,25 +273,29 @@ export function MultiplayerBoard({
 
             <span
               className={`inline-block px-3 py-1 rounded-md text-xs font-bold border ${
-                isMyTurn && gameState.phase === "discard"
-                  ? "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800"
-                  : isMyTurn && gameState.phase === "draw"
-                    ? "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800"
-                    : gameState.phase === "won"
-                      ? "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800"
-                      : "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800"
+                gameState.phase === "calling"
+                  ? "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800"
+                  : isMyTurn && gameState.phase === "discard"
+                    ? "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800"
+                    : isMyTurn && gameState.phase === "draw"
+                      ? "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800"
+                      : gameState.phase === "won"
+                        ? "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800"
+                        : "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800"
               }`}
               data-testid="text-phase"
             >
               {gameState.phase === "won"
                 ? "Game Over"
-                : isMyTurn
-                  ? (gameState.phase === "draw"
-                    ? (isSiamese ? "Your turn: Draw" : `${isPlayingPartner ? displaySeat + "'s" : "Your"} turn: Draw`)
-                    : (isSiamese
-                      ? (<><span className="sm:hidden">Discard</span><span className="hidden sm:inline">Your turn: Discard / Transfer</span></>)
-                      : `${isPlayingPartner ? displaySeat + "'s" : "Your"} turn: Discard`))
-                  : `${gameState.currentTurn}'s turn`
+                : gameState.phase === "calling"
+                  ? "Calling"
+                  : isMyTurn
+                    ? (gameState.phase === "draw"
+                      ? (isSiamese ? "Your turn: Draw" : `${isPlayingPartner ? displaySeat + "'s" : "Your"} turn: Draw`)
+                      : (isSiamese
+                        ? (<><span className="sm:hidden">Discard</span><span className="hidden sm:inline">Your turn: Discard / Transfer</span></>)
+                        : `${isPlayingPartner ? displaySeat + "'s" : "Your"} turn: Discard`))
+                    : `${gameState.currentTurn}'s turn`
               }
             </span>
 
@@ -447,6 +454,17 @@ export function MultiplayerBoard({
                         <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase">
                           Current Turn
                         </span>
+                      </div>
+                    )}
+                    {player.exposures.length > 0 && (
+                      <div className="mt-1.5 flex items-center gap-1 flex-wrap">
+                        {player.exposures.map((group, gi) => (
+                          <div key={gi} className="flex items-center gap-0.5 bg-muted/30 rounded-md px-1 py-0.5">
+                            {group.map(tile => (
+                              <Tile key={tile.id} tile={tile} size="xs" data-testid={`exposure-tile-${tile.id}`} />
+                            ))}
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>

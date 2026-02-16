@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import { useMultiplayerGame } from "@/hooks/use-multiplayer-game";
 import { MultiplayerBoard } from "@/components/MultiplayerBoard";
 import { WinOverlay } from "@/components/WinOverlay";
+import { CharlestonOverlay } from "@/components/CharlestonOverlay";
+import { CallingOverlay } from "@/components/CallingOverlay";
 import { TileStyleContext, useTileStyleState } from "@/hooks/use-tile-style";
 import { ThemeContext, useThemeState } from "@/hooks/use-theme";
 import LobbyPage from "./Lobby";
@@ -36,6 +38,12 @@ export default function GamePage() {
     toggleAutoShowHints,
     resetGame,
     testSiameseWin,
+    charlestonSelectTile,
+    charlestonReady,
+    charlestonSkip,
+    charlestonVote,
+    claimDiscardTile,
+    passOnDiscardTile,
     handleTimeoutAction,
     selectSuggestionPattern,
   } = game;
@@ -92,6 +100,26 @@ export default function GamePage() {
             onSelectPattern={selectSuggestionPattern}
             onTestSiameseWin={testSiameseWin}
           />
+
+          {gameState.phase === "charleston" && gameState.charleston && (
+            <CharlestonOverlay
+              charleston={gameState.charleston}
+              hand={gameState.myHand}
+              onSelectTile={charlestonSelectTile}
+              onReady={charlestonReady}
+              onSkip={charlestonSkip}
+              onVote={charlestonVote}
+            />
+          )}
+
+          {gameState.phase === "calling" && gameState.callingState && (
+            <CallingOverlay
+              callingState={gameState.callingState}
+              hand={gameState.myHand}
+              onClaim={claimDiscardTile}
+              onPass={passOnDiscardTile}
+            />
+          )}
 
           {winResult && (
             <WinOverlay

@@ -1,4 +1,4 @@
-import { type Tile, type Suit, type TileValue, type PlayerSeat, type PlayerState, type RoomState, type ClientRoomView, type ClientCharlestonView, type DisconnectedPlayerInfo, type RoomConfig, type GameMode, type CharlestonState, type CharlestonDirection, SEAT_ORDER } from "@shared/schema";
+import { type Tile, type Suit, type TileValue, type PlayerSeat, type PlayerState, type RoomState, type ClientRoomView, type ClientCharlestonView, type ClientCallingView, type DisconnectedPlayerInfo, type RoomConfig, type GameMode, type CharlestonState, type CharlestonDirection, type CallingState, type PendingClaim, type ClaimType, SEAT_ORDER } from "@shared/schema";
 import { checkForWin, checkAllPatterns } from "@shared/patterns";
 
 const RECONNECT_TIMEOUT_MS = 60_000;
@@ -816,9 +816,21 @@ export function discardTile(roomCode: string, playerId: string, tileId: string, 
   if (tileIndex === -1) return { success: false, error: "Tile not in hand" };
 
   const [discarded] = player.hand.splice(tileIndex, 1);
-  room.state.discardPile.unshift(discarded);
   room.state.lastDiscard = discarded;
   room.state.lastDiscardedBy = player.seat;
+
+  if (room.state.config.gameMode === "4-player") {
+    room.state.callingState = {
+      discardedTile: discarded,
+      discardedBy: player.seat,
+      claims: [],
+      passedPlayers: [player.seat],
+    };
+    room.state.phase = "calling";
+    return { success: true };
+  }
+
+  room.state.discardPile.unshift(discarded);
 
   if (room.state.config.gameMode === "2-player") {
     const controllerId = player.controlledBy || player.id;
@@ -941,6 +953,18 @@ export function getClientView(room: GameRoom, playerId: string): ClientRoomView 
     gameMode: room.state.config.gameMode,
     partnerHand,
     charleston: room.state.charleston ? getCharlestonView(room.state.charleston, player.seat) : undefined,
+    callingState: room.state.callingState ? getCallingView(room.state.callingState, player.seat, playerId) : undefined,
+  };
+}
+
+function getCallingView(calling: CallingState, mySeat: PlayerSeat, playerId: string): ClientCallingView {
+  return {
+    discardedTile: calling.discardedTile,
+    discardedBy: calling.discardedBy,
+    claims: calling.claims.map(c => ({ seat: c.seat, claimType: c.claimType })),
+    passedPlayers: calling.passedPlayers,
+    hasClaimed: calling.claims.some(c => c.seat === mySeat),
+    hasPassed: calling.passedPlayers.includes(mySeat),
   };
 }
 
@@ -950,6 +974,7 @@ function getCharlestonView(charleston: CharlestonState, mySeat: PlayerSeat): Cli
     passIndex: charleston.passIndex,
     direction: charleston.direction,
     mySelectedTileIds: charleston.selections[mySeat] || [],
+    myReady: charleston.readyPlayers.includes(mySeat),
     readyCount: charleston.readyPlayers.length,
     totalPlayers: 4,
     secondCharlestonOffered: charleston.secondCharlestonOffered,
@@ -1305,6 +1330,188 @@ export function scheduleBotTurn(roomCode: string, callback: () => void): void {
   }, BOT_TURN_DELAY_MS);
 
   room.botTimers.set(timerKey, timer);
+}
+
+const CLAIM_PRIORITY: Record<ClaimType, number> = {
+  mahjong: 4,
+  quint: 3,
+  kong: 2,
+  pung: 1,
+};
+
+export function claimDiscard(roomCode: string, playerId: string, claimType: ClaimType, tileIds: string[]): { success: boolean; error?: string } {
+  const room = rooms.get(roomCode);
+  if (!room) return { success: false, error: "Room not found" };
+  if (room.state.phase !== "calling") return { success: false, error: "Not in calling phase" };
+  if (!room.state.callingState) return { success: false, error: "No calling state" };
+
+  const player = room.state.players.find(p => p.id === playerId);
+  if (!player) return { success: false, error: "Player not found" };
+
+  if (player.seat === room.state.callingState.discardedBy) {
+    return { success: false, error: "Cannot claim your own discard" };
+  }
+
+  if (room.state.callingState.claims.some(c => c.seat === player.seat)) {
+    return { success: false, error: "Already claimed" };
+  }
+
+  const requiredTilesFromHand = claimType === "pung" ? 2 : claimType === "kong" ? 3 : claimType === "quint" ? 4 : 0;
+
+  if (claimType !== "mahjong") {
+    if (tileIds.length !== requiredTilesFromHand) {
+      return { success: false, error: `${claimType} requires ${requiredTilesFromHand} matching tiles from your hand` };
+    }
+    const uniqueIds = new Set(tileIds);
+    if (uniqueIds.size !== tileIds.length) {
+      return { success: false, error: "Duplicate tile IDs" };
+    }
+    const discarded = room.state.callingState.discardedTile;
+    for (const tid of tileIds) {
+      const tile = player.hand.find(t => t.id === tid);
+      if (!tile) {
+        return { success: false, error: "Tile not in hand" };
+      }
+      if (!tile.isJoker && (tile.suit !== discarded.suit || tile.value !== discarded.value)) {
+        return { success: false, error: "Tiles must match the discarded tile (or be Jokers)" };
+      }
+    }
+  }
+
+  room.state.callingState.claims.push({
+    playerId,
+    seat: player.seat,
+    claimType,
+    tileIds,
+  });
+
+  return { success: true };
+}
+
+export function passOnDiscard(roomCode: string, playerId: string): { success: boolean; error?: string } {
+  const room = rooms.get(roomCode);
+  if (!room) return { success: false, error: "Room not found" };
+  if (room.state.phase !== "calling") return { success: false, error: "Not in calling phase" };
+  if (!room.state.callingState) return { success: false, error: "No calling state" };
+
+  const player = room.state.players.find(p => p.id === playerId);
+  if (!player) return { success: false, error: "Player not found" };
+
+  if (room.state.callingState.passedPlayers.includes(player.seat)) {
+    return { success: false, error: "Already passed" };
+  }
+
+  room.state.callingState.passedPlayers.push(player.seat);
+  return { success: true };
+}
+
+export function isCallingComplete(roomCode: string): boolean {
+  const room = rooms.get(roomCode);
+  if (!room || !room.state.callingState) return false;
+
+  const calling = room.state.callingState;
+  const eligiblePlayers = room.state.players.filter(p => p.seat !== calling.discardedBy);
+
+  for (const p of eligiblePlayers) {
+    const hasClaimed = calling.claims.some(c => c.seat === p.seat);
+    const hasPassed = calling.passedPlayers.includes(p.seat);
+    if (!hasClaimed && !hasPassed) return false;
+  }
+  return true;
+}
+
+export function resolveCallingPhase(roomCode: string): { resolved: boolean; winnerClaim?: PendingClaim; error?: string } {
+  const room = rooms.get(roomCode);
+  if (!room || !room.state.callingState) return { resolved: false, error: "No calling state" };
+
+  const calling = room.state.callingState;
+
+  if (calling.claims.length === 0) {
+    room.state.discardPile.unshift(calling.discardedTile);
+
+    const discardedByIdx = SEAT_ORDER.indexOf(calling.discardedBy);
+    room.state.currentTurn = SEAT_ORDER[(discardedByIdx + 1) % 4];
+    room.state.phase = "draw";
+    room.state.callingState = undefined;
+    return { resolved: true };
+  }
+
+  const sortedClaims = [...calling.claims].sort((a, b) => {
+    const priA = CLAIM_PRIORITY[a.claimType];
+    const priB = CLAIM_PRIORITY[b.claimType];
+    if (priA !== priB) return priB - priA;
+
+    const discardIdx = SEAT_ORDER.indexOf(calling.discardedBy);
+    const distA = (SEAT_ORDER.indexOf(a.seat) - discardIdx + 4) % 4;
+    const distB = (SEAT_ORDER.indexOf(b.seat) - discardIdx + 4) % 4;
+    return distA - distB;
+  });
+
+  const winnerClaim = sortedClaims[0];
+  const claimPlayer = room.state.players.find(p => p.seat === winnerClaim.seat);
+  if (!claimPlayer) return { resolved: false, error: "Claiming player not found" };
+
+  if (winnerClaim.claimType === "mahjong") {
+    claimPlayer.hand.push(calling.discardedTile);
+  } else {
+    const exposureGroup: Tile[] = [calling.discardedTile];
+    for (const tid of winnerClaim.tileIds) {
+      const tileIdx = claimPlayer.hand.findIndex(t => t.id === tid);
+      if (tileIdx !== -1) {
+        exposureGroup.push(claimPlayer.hand.splice(tileIdx, 1)[0]);
+      }
+    }
+    claimPlayer.exposures.push(exposureGroup);
+  }
+
+  room.state.currentTurn = winnerClaim.seat;
+  room.state.lastDiscard = null;
+
+  if (winnerClaim.claimType === "mahjong") {
+    room.state.phase = "discard";
+  } else {
+    room.state.phase = "discard";
+  }
+
+  room.state.callingState = undefined;
+  return { resolved: true, winnerClaim };
+}
+
+export function botCallingDecision(roomCode: string): void {
+  const room = rooms.get(roomCode);
+  if (!room || !room.state.callingState) return;
+
+  const calling = room.state.callingState;
+  const bots = room.state.players.filter(p => p.isBot && !p.controlledBy && p.seat !== calling.discardedBy);
+
+  for (const bot of bots) {
+    if (calling.passedPlayers.includes(bot.seat)) continue;
+    if (calling.claims.some(c => c.seat === bot.seat)) continue;
+
+    const matchingTiles = bot.hand.filter(t =>
+      t.suit === calling.discardedTile.suit && t.value === calling.discardedTile.value
+    );
+
+    if (matchingTiles.length >= 2) {
+      const tileIds = matchingTiles.slice(0, 2).map(t => t.id);
+      calling.claims.push({
+        playerId: bot.id,
+        seat: bot.seat,
+        claimType: "pung",
+        tileIds,
+      });
+    } else if (matchingTiles.length >= 3) {
+      const tileIds = matchingTiles.slice(0, 3).map(t => t.id);
+      calling.claims.push({
+        playerId: bot.id,
+        seat: bot.seat,
+        claimType: "kong",
+        tileIds,
+      });
+    } else {
+      calling.passedPlayers.push(bot.seat);
+    }
+  }
 }
 
 export function checkBotWin(roomCode: string): { won: boolean; botName?: string; botSeat?: PlayerSeat; patternName?: string; description?: string } {

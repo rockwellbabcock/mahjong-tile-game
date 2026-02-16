@@ -226,6 +226,30 @@ export function useMultiplayerGame() {
     socketRef.current?.emit("game:test-siamese-win");
   }, []);
 
+  const charlestonSelectTile = useCallback((tileId: string) => {
+    socketRef.current?.emit("game:charleston-select", { tileId });
+  }, []);
+
+  const charlestonReady = useCallback(() => {
+    socketRef.current?.emit("game:charleston-ready");
+  }, []);
+
+  const charlestonSkip = useCallback(() => {
+    socketRef.current?.emit("game:charleston-skip");
+  }, []);
+
+  const charlestonVote = useCallback((accept: boolean) => {
+    socketRef.current?.emit("game:charleston-vote", { accept });
+  }, []);
+
+  const claimDiscardTile = useCallback((claimType: "pung" | "kong" | "quint" | "mahjong", tileIds: string[]) => {
+    socketRef.current?.emit("game:claim", { claimType, tileIds });
+  }, []);
+
+  const passOnDiscardTile = useCallback(() => {
+    socketRef.current?.emit("game:claim-pass");
+  }, []);
+
   const handleTimeoutAction = useCallback((action: TimeoutAction) => {
     socketRef.current?.emit("game:timeout-action", { action });
     if (action === "wait") {
@@ -283,6 +307,12 @@ export function useMultiplayerGame() {
     toggleAutoShowHints,
     resetGame,
     testSiameseWin,
+    charlestonSelectTile,
+    charlestonReady,
+    charlestonSkip,
+    charlestonVote,
+    claimDiscardTile,
+    passOnDiscardTile,
     handleTimeoutAction,
     selectSuggestionPattern,
   };

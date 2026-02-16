@@ -31,7 +31,7 @@ export interface Tile {
   isJoker?: boolean;
 }
 
-export type GamePhase = "charleston" | "draw" | "discard" | "won";
+export type GamePhase = "charleston" | "draw" | "discard" | "calling" | "won";
 
 export type PlayerSeat = "East" | "South" | "West" | "North";
 export const SEAT_ORDER: PlayerSeat[] = ["East", "South", "West", "North"];
@@ -51,6 +51,30 @@ export interface CharlestonState {
   secondCharlestonOffered: boolean;
   secondCharlestonVotes: Partial<Record<PlayerSeat, boolean>>;
   skipped: boolean;
+}
+
+export interface PendingClaim {
+  playerId: string;
+  seat: PlayerSeat;
+  claimType: ClaimType;
+  tileIds: string[];
+}
+
+export interface CallingState {
+  discardedTile: Tile;
+  discardedBy: PlayerSeat;
+  claims: PendingClaim[];
+  passedPlayers: PlayerSeat[];
+  callingTimeout?: number;
+}
+
+export interface ClientCallingView {
+  discardedTile: Tile;
+  discardedBy: PlayerSeat;
+  claims: { seat: PlayerSeat; claimType: ClaimType }[];
+  passedPlayers: PlayerSeat[];
+  hasClaimed: boolean;
+  hasPassed: boolean;
 }
 
 export interface RoomConfig {
@@ -84,6 +108,7 @@ export interface RoomState {
   started: boolean;
   config: RoomConfig;
   charleston?: CharlestonState;
+  callingState?: CallingState;
 }
 
 export interface ClientCharlestonView {
@@ -91,6 +116,7 @@ export interface ClientCharlestonView {
   passIndex: number;
   direction: CharlestonDirection;
   mySelectedTileIds: string[];
+  myReady: boolean;
   readyCount: number;
   totalPlayers: number;
   secondCharlestonOffered: boolean;
@@ -127,6 +153,7 @@ export interface ClientRoomView {
   gameMode: GameMode;
   partnerHand?: Tile[];
   charleston?: ClientCharlestonView;
+  callingState?: ClientCallingView;
 }
 
 export interface DisconnectedPlayerInfo {
@@ -163,6 +190,7 @@ export interface ClientToServerEvents {
   "game:timeout-action": (data: { action: TimeoutAction }) => void;
   "game:transfer": (data: { tileId: string; fromSeat: PlayerSeat; toSeat: PlayerSeat }) => void;
   "game:claim": (data: { claimType: ClaimType; tileIds: string[] }) => void;
+  "game:claim-pass": () => void;
   "game:test-siamese-win": () => void;
   "game:charleston-select": (data: { tileId: string }) => void;
   "game:charleston-ready": () => void;

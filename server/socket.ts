@@ -29,6 +29,18 @@ import {
   transferTile,
   executeBotTransfers,
   testSiameseWin,
+  charlestonSelectTile,
+  charlestonReady,
+  charlestonSkip,
+  charlestonVote,
+  executeCharlestonPass,
+  charlestonBotAutoSelect,
+  charlestonBotVote,
+  claimDiscard,
+  passOnDiscard,
+  isCallingComplete,
+  resolveCallingPhase,
+  botCallingDecision,
 } from "./game-engine";
 import { log } from "./index";
 
@@ -49,9 +61,38 @@ function broadcastState(io: Server<ClientToServerEvents, ServerToClientEvents>, 
   }
 }
 
+function handleCallingResolution(io: Server<ClientToServerEvents, ServerToClientEvents>, roomCode: string) {
+  if (!isCallingComplete(roomCode)) return;
+
+  const result = resolveCallingPhase(roomCode);
+  if (!result.resolved) return;
+
+  if (result.winnerClaim) {
+    const room = getRoom(roomCode);
+    if (room && result.winnerClaim.claimType === "mahjong") {
+      const winCheck = checkWinForPlayer(roomCode, result.winnerClaim.playerId);
+      if (winCheck.won) {
+        const claimPlayer = room.state.players.find(p => p.seat === result.winnerClaim!.seat);
+        io.to(roomCode).emit("game:win", {
+          winnerId: result.winnerClaim.playerId,
+          winnerName: claimPlayer?.name || "Unknown",
+          winnerSeat: result.winnerClaim.seat,
+          patternName: winCheck.patternName || "Mahjong",
+          description: winCheck.description || "",
+        });
+      }
+    }
+  }
+
+  broadcastState(io, roomCode);
+  handleBotTurns(io, roomCode);
+}
+
 function handleBotTurns(io: Server<ClientToServerEvents, ServerToClientEvents>, roomCode: string) {
   const room = getRoom(roomCode);
   if (!room || !room.state.started || room.state.phase === "won") return;
+
+  if (room.state.phase === "calling") return;
 
   if (!isCurrentTurnBot(roomCode)) return;
 
@@ -87,8 +128,14 @@ function handleBotTurns(io: Server<ClientToServerEvents, ServerToClientEvents>, 
 
           const discardResult = executeBotDiscard(roomCode);
           if (discardResult.success) {
-            broadcastState(io, roomCode);
-            handleBotTurns(io, roomCode);
+            if (discardRoom.state.phase === "calling") {
+              botCallingDecision(roomCode);
+              broadcastState(io, roomCode);
+              handleCallingResolution(io, roomCode);
+            } else {
+              broadcastState(io, roomCode);
+              handleBotTurns(io, roomCode);
+            }
           }
         }
       });
@@ -127,8 +174,8 @@ export function setupSocket(httpServer: HttpServer): Server<ClientToServerEvents
           if (started) {
             log(`Game auto-started with bots in room ${roomCode} (mode: ${room.state.config.gameMode})`, "socket");
             io.to(roomCode).emit("game:started");
+            charlestonBotAutoSelect(roomCode);
             broadcastState(io, roomCode);
-            handleBotTurns(io, roomCode);
             return;
           }
         }
@@ -178,8 +225,8 @@ export function setupSocket(httpServer: HttpServer): Server<ClientToServerEvents
           if (started) {
             log(`Game started in room ${code}`, "socket");
             io.to(code).emit("game:started");
+            charlestonBotAutoSelect(code);
             broadcastState(io, code);
-            handleBotTurns(io, code);
             return;
           }
         }
@@ -260,8 +307,15 @@ export function setupSocket(httpServer: HttpServer): Server<ClientToServerEvents
         return;
       }
 
-      broadcastState(io, roomCode);
-      handleBotTurns(io, roomCode);
+      const room = getRoom(roomCode);
+      if (room && room.state.phase === "calling") {
+        botCallingDecision(roomCode);
+        broadcastState(io, roomCode);
+        handleCallingResolution(io, roomCode);
+      } else {
+        broadcastState(io, roomCode);
+        handleBotTurns(io, roomCode);
+      }
     });
 
     socket.on("game:sort", (data) => {
@@ -299,6 +353,117 @@ export function setupSocket(httpServer: HttpServer): Server<ClientToServerEvents
       }
     });
 
+    socket.on("game:claim", ({ claimType, tileIds }) => {
+      const roomCode = playerRooms.get(socket.id);
+      if (!roomCode) {
+        socket.emit("error", { message: "Not in a room" });
+        return;
+      }
+
+      const result = claimDiscard(roomCode, socket.id, claimType, tileIds);
+      if (!result.success) {
+        socket.emit("error", { message: result.error || "Cannot claim" });
+        return;
+      }
+
+      log(`Player ${socket.id} claims ${claimType} in room ${roomCode}`, "socket");
+      broadcastState(io, roomCode);
+      handleCallingResolution(io, roomCode);
+    });
+
+    socket.on("game:claim-pass", () => {
+      const roomCode = playerRooms.get(socket.id);
+      if (!roomCode) {
+        socket.emit("error", { message: "Not in a room" });
+        return;
+      }
+
+      const result = passOnDiscard(roomCode, socket.id);
+      if (!result.success) {
+        socket.emit("error", { message: result.error || "Cannot pass" });
+        return;
+      }
+
+      broadcastState(io, roomCode);
+      handleCallingResolution(io, roomCode);
+    });
+
+    socket.on("game:charleston-select", ({ tileId }) => {
+      const roomCode = playerRooms.get(socket.id);
+      if (!roomCode) return;
+
+      const result = charlestonSelectTile(roomCode, socket.id, tileId);
+      if (!result.success) {
+        socket.emit("error", { message: result.error || "Cannot select tile" });
+        return;
+      }
+      broadcastState(io, roomCode);
+    });
+
+    socket.on("game:charleston-ready", () => {
+      const roomCode = playerRooms.get(socket.id);
+      if (!roomCode) return;
+
+      const result = charlestonReady(roomCode, socket.id);
+      if (!result.success) {
+        socket.emit("error", { message: result.error || "Cannot mark ready" });
+        return;
+      }
+
+      if (result.allReady) {
+        executeCharlestonPass(roomCode);
+        const room = getRoom(roomCode);
+        if (room && room.state.phase === "charleston" && room.state.charleston?.secondCharlestonOffered) {
+          charlestonBotVote(roomCode);
+          const humanSeats = room.state.players.filter(p => !p.isBot && !p.controlledBy);
+          if (humanSeats.length === 0) {
+            charlestonVote(roomCode, room.state.players[0].id, true);
+          }
+        }
+        if (room && room.state.phase === "charleston" && !room.state.charleston?.secondCharlestonOffered) {
+          charlestonBotAutoSelect(roomCode);
+        }
+        if (room && room.state.phase === "draw") {
+          handleBotTurns(io, roomCode);
+        }
+      }
+
+      broadcastState(io, roomCode);
+    });
+
+    socket.on("game:charleston-skip", () => {
+      const roomCode = playerRooms.get(socket.id);
+      if (!roomCode) return;
+
+      const success = charlestonSkip(roomCode, socket.id);
+      if (success) {
+        log(`Charleston skipped in room ${roomCode}`, "socket");
+        broadcastState(io, roomCode);
+        handleBotTurns(io, roomCode);
+      }
+    });
+
+    socket.on("game:charleston-vote", ({ accept }) => {
+      const roomCode = playerRooms.get(socket.id);
+      if (!roomCode) return;
+
+      const result = charlestonVote(roomCode, socket.id, accept);
+      if (!result.success) {
+        socket.emit("error", { message: result.error || "Cannot vote" });
+        return;
+      }
+
+      if (result.decided) {
+        if (result.accepted) {
+          charlestonBotAutoSelect(roomCode);
+        } else {
+          handleBotTurns(io, roomCode);
+        }
+      }
+
+      broadcastState(io, roomCode);
+    });
+
     socket.on("game:reset", () => {
       const roomCode = playerRooms.get(socket.id);
       if (!roomCode) return;
@@ -307,8 +472,8 @@ export function setupSocket(httpServer: HttpServer): Server<ClientToServerEvents
       if (success) {
         log(`Game reset in room ${roomCode}`, "socket");
         io.to(roomCode).emit("game:started");
+        charlestonBotAutoSelect(roomCode);
         broadcastState(io, roomCode);
-        handleBotTurns(io, roomCode);
       }
     });
 
