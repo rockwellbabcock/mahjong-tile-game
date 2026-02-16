@@ -5,7 +5,7 @@ import { Tile, TileBack } from "./Tile";
 import { HintPanel } from "./HintPanel";
 import { GameTooltip } from "./GameTooltip";
 import { Button } from "@/components/ui/button";
-import { ArrowUpDown, Lightbulb, Palette, Copy, Check, Hand, WifiOff, Clock, X, Bot, Eye } from "lucide-react";
+import { ArrowUpDown, Lightbulb, Palette, Copy, Check, Hand, WifiOff, Clock, X, Bot, Eye, ArrowLeftRight } from "lucide-react";
 import { useTileStyle } from "@/hooks/use-tile-style";
 import { useState, useEffect, useMemo } from "react";
 
@@ -33,6 +33,7 @@ interface MultiplayerBoardProps {
   onDraw: (forSeat?: PlayerSeat) => void;
   onDiscard: (id: string, forSeat?: PlayerSeat) => void;
   onSort: (forSeat?: PlayerSeat) => void;
+  onTransfer: (tileId: string, fromSeat: PlayerSeat, toSeat: PlayerSeat) => void;
   onToggleHints: () => void;
   onToggleAutoShowHints: () => void;
   onTimeoutAction: (action: TimeoutAction) => void;
@@ -85,6 +86,7 @@ export function MultiplayerBoard({
   onDraw,
   onDiscard,
   onSort,
+  onTransfer,
   onToggleHints,
   onToggleAutoShowHints,
   onTimeoutAction,
@@ -92,6 +94,7 @@ export function MultiplayerBoard({
 }: MultiplayerBoardProps) {
   const { tileStyle, cycleTileStyle } = useTileStyle();
   const [copied, setCopied] = useState(false);
+  const [transferMode, setTransferMode] = useState(false);
 
   const highlightedTileIds = useMemo(() => {
     if (!activeSuggestionPattern || !hints) return new Set<string>();
@@ -123,6 +126,10 @@ export function MultiplayerBoard({
       return "Game over!";
     }
     if (isMyTurn) {
+      if (isSiamese) {
+        if (gameState.phase === "draw") return "Your turn - draw a tile from the pool.";
+        return "Your turn - transfer tiles between racks or discard.";
+      }
       const prefix = isPlayingPartner ? `Your partner's turn (${displaySeat})` : "Your turn";
       if (gameState.phase === "draw") return `${prefix} - click Draw to pick a tile from the wall.`;
       return `${prefix} - pick a tile from your hand to discard it.`;
@@ -221,7 +228,7 @@ export function MultiplayerBoard({
             <TileBack count={gameState.wallCount} />
             <div>
               <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider" data-testid="text-wall-label">
-                <GameTooltip term="wall">Wall</GameTooltip>
+                {isSiamese ? "Pool" : <GameTooltip term="wall">Wall</GameTooltip>}
               </h2>
               <p className="text-xl font-bold text-foreground" data-testid="text-wall-count">{gameState.wallCount} tiles</p>
             </div>
@@ -253,8 +260,8 @@ export function MultiplayerBoard({
                 ? "Game Over"
                 : isMyTurn
                   ? (gameState.phase === "draw"
-                    ? `${isPlayingPartner ? displaySeat + "'s" : "Your"} turn: Draw`
-                    : `${isPlayingPartner ? displaySeat + "'s" : "Your"} turn: Discard`)
+                    ? (isSiamese ? "Your turn: Draw" : `${isPlayingPartner ? displaySeat + "'s" : "Your"} turn: Draw`)
+                    : (isSiamese ? "Your turn: Discard / Transfer" : `${isPlayingPartner ? displaySeat + "'s" : "Your"} turn: Discard`))
                   : `${gameState.currentTurn}'s turn`
               }
             </span>
@@ -407,7 +414,7 @@ export function MultiplayerBoard({
             {isMyTurn && gameState.phase === "draw" && (
               <div className="flex justify-center mb-3">
                 <Button onClick={() => onDraw(activeControlSeat || undefined)} data-testid="button-draw">
-                  Draw Tile {isPlayingPartner ? `(${displaySeat})` : ""}
+                  {isSiamese ? "Draw from Pool" : "Draw Tile"}
                 </Button>
               </div>
             )}
@@ -421,61 +428,130 @@ export function MultiplayerBoard({
         </div>
 
         <footer className="border-t border-border p-4" data-testid="player-hand-area">
-          <div className="flex items-center justify-center gap-2 mb-3">
-            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider text-center" data-testid="text-hand-label">
-              {isSiamese ? (
-                isPlayingPartner ? (
-                  <>Your Hand 2 ({displayHand.length} tiles) - {displaySeat}</>
-                ) : (
-                  <>Your Hand 1 ({displayHand.length} tiles) - {displaySeat}</>
-                )
-              ) : (
-                <>Your <GameTooltip term="hand">Hand</GameTooltip> ({displayHand.length} tiles) - {displaySeat}</>
-              )}
-            </h3>
-            {isMyTurn && gameState.phase === "discard" && (
-              <span className="text-xs font-bold text-orange-600 dark:text-orange-400 animate-pulse">
-                Click a tile to discard
-              </span>
-            )}
-          </div>
-
-          <div className="flex items-end justify-center gap-1 w-full overflow-x-auto pb-2">
-            <div className="flex items-center justify-center gap-1 p-3 bg-card rounded-md border border-card-border" data-testid="hand-main">
-              {displayHand.map((tile) => {
-                const isHighlighted = highlightedTileIds.has(tile.id);
-                return (
-                  <div
-                    key={tile.id}
-                    className={`relative ${
-                      isHighlighted && activeSuggestionPattern
-                        ? "ring-2 ring-blue-400 dark:ring-blue-500 rounded-md"
-                        : ""
-                    }`}
+          {isSiamese && gameState.partnerHand ? (
+            <>
+              {isMyTurn && gameState.phase === "discard" && (
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setTransferMode(!transferMode)}
+                    className={transferMode ? "bg-purple-100 dark:bg-purple-900/30 border-purple-300 dark:border-purple-700" : ""}
+                    data-testid="button-transfer-mode"
                   >
-                    <Tile
-                      tile={tile}
-                      isInteractive={isMyTurn && gameState.phase === "discard"}
-                      onClick={() => onDiscard(tile.id, activeControlSeat || undefined)}
-                      dimmed={activeSuggestionPattern ? !isHighlighted : false}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+                    <ArrowLeftRight className="w-4 h-4 mr-1" />
+                    {transferMode ? "Transfer On" : "Transfer"}
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    {transferMode
+                      ? "Click a tile to move it to your other rack"
+                      : "Click a tile to discard it"
+                    }
+                  </span>
+                </div>
+              )}
 
-          {isSiamese && gameState.partnerHand && !isPlayingPartner && (
-            <div className="mt-3">
-              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider text-center mb-2" data-testid="text-partner-hand-label">
-                Your Hand 2 ({gameState.partnerHand.length} tiles) - {gameState.mySeats.find(s => s !== gameState.mySeat)}
-              </h3>
-              <div className="flex items-center justify-center gap-1 p-2 bg-card/50 rounded-md border border-dashed border-border" data-testid="hand-partner">
-                {gameState.partnerHand.map((tile) => (
-                  <Tile key={tile.id} tile={tile} size="sm" />
-                ))}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider text-center mb-2" data-testid="text-hand-label">
+                    Rack 1 ({gameState.myHand.length} tiles) - {gameState.mySeat}
+                  </h3>
+                  <div className="flex items-center justify-center gap-1 p-3 bg-card rounded-md border border-card-border flex-wrap" data-testid="hand-main">
+                    {gameState.myHand.map((tile) => {
+                      const isHighlighted = highlightedTileIds.has(tile.id);
+                      const partnerSeat = gameState.mySeats.find(s => s !== gameState.mySeat);
+                      return (
+                        <div
+                          key={tile.id}
+                          className={`relative ${
+                            isHighlighted && activeSuggestionPattern
+                              ? "ring-2 ring-blue-400 dark:ring-blue-500 rounded-md"
+                              : ""
+                          }`}
+                        >
+                          <Tile
+                            tile={tile}
+                            isInteractive={isMyTurn && gameState.phase === "discard"}
+                            onClick={() => {
+                              if (transferMode && partnerSeat) {
+                                onTransfer(tile.id, gameState.mySeat, partnerSeat);
+                              } else {
+                                onDiscard(tile.id, gameState.mySeat);
+                              }
+                            }}
+                            dimmed={activeSuggestionPattern ? !isHighlighted : false}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider text-center mb-2" data-testid="text-partner-hand-label">
+                    Rack 2 ({gameState.partnerHand.length} tiles) - {gameState.mySeats.find(s => s !== gameState.mySeat)}
+                  </h3>
+                  <div className="flex items-center justify-center gap-1 p-3 bg-card rounded-md border border-card-border flex-wrap" data-testid="hand-partner">
+                    {gameState.partnerHand.map((tile) => {
+                      const partnerSeat = gameState.mySeats.find(s => s !== gameState.mySeat)!;
+                      return (
+                        <div key={tile.id} className="relative">
+                          <Tile
+                            tile={tile}
+                            isInteractive={isMyTurn && gameState.phase === "discard"}
+                            onClick={() => {
+                              if (transferMode) {
+                                onTransfer(tile.id, partnerSeat, gameState.mySeat);
+                              } else {
+                                onDiscard(tile.id, partnerSeat);
+                              }
+                            }}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
-            </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center justify-center gap-2 mb-3">
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider text-center" data-testid="text-hand-label">
+                  Your <GameTooltip term="hand">Hand</GameTooltip> ({displayHand.length} tiles) - {displaySeat}
+                </h3>
+                {isMyTurn && gameState.phase === "discard" && (
+                  <span className="text-xs font-bold text-orange-600 dark:text-orange-400 animate-pulse">
+                    Click a tile to discard
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-end justify-center gap-1 w-full overflow-x-auto pb-2">
+                <div className="flex items-center justify-center gap-1 p-3 bg-card rounded-md border border-card-border" data-testid="hand-main">
+                  {displayHand.map((tile) => {
+                    const isHighlighted = highlightedTileIds.has(tile.id);
+                    return (
+                      <div
+                        key={tile.id}
+                        className={`relative ${
+                          isHighlighted && activeSuggestionPattern
+                            ? "ring-2 ring-blue-400 dark:ring-blue-500 rounded-md"
+                            : ""
+                        }`}
+                      >
+                        <Tile
+                          tile={tile}
+                          isInteractive={isMyTurn && gameState.phase === "discard"}
+                          onClick={() => onDiscard(tile.id, activeControlSeat || undefined)}
+                          dimmed={activeSuggestionPattern ? !isHighlighted : false}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
           )}
         </footer>
       </div>

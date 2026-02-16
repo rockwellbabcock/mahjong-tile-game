@@ -200,6 +200,10 @@ export function useMultiplayerGame() {
     socketRef.current?.emit("game:sort", forSeat ? { seat: forSeat } : undefined);
   }, []);
 
+  const transferTile = useCallback((tileId: string, fromSeat: PlayerSeat, toSeat: PlayerSeat) => {
+    socketRef.current?.emit("game:transfer", { tileId, fromSeat, toSeat });
+  }, []);
+
   const toggleHints = useCallback(() => {
     setShowHints(prev => !prev);
   }, []);
@@ -270,6 +274,7 @@ export function useMultiplayerGame() {
     draw,
     discard,
     sortHand,
+    transferTile,
     toggleHints,
     toggleAutoShowHints,
     resetGame,

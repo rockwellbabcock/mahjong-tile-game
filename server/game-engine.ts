@@ -573,8 +573,19 @@ export function discardTile(roomCode: string, playerId: string, tileId: string, 
   room.state.lastDiscard = discarded;
   room.state.lastDiscardedBy = player.seat;
 
-  const currentIdx = SEAT_ORDER.indexOf(room.state.currentTurn);
-  room.state.currentTurn = SEAT_ORDER[(currentIdx + 1) % 4];
+  if (room.state.config.gameMode === "2-player") {
+    const controllerId = player.controlledBy || player.id;
+    const opponentMain = room.state.players.find(p => p.id !== controllerId && !p.controlledBy);
+    if (opponentMain) {
+      room.state.currentTurn = opponentMain.seat;
+    } else {
+      const currentIdx = SEAT_ORDER.indexOf(room.state.currentTurn);
+      room.state.currentTurn = SEAT_ORDER[(currentIdx + 1) % 4];
+    }
+  } else {
+    const currentIdx = SEAT_ORDER.indexOf(room.state.currentTurn);
+    room.state.currentTurn = SEAT_ORDER[(currentIdx + 1) % 4];
+  }
   room.state.phase = "draw";
 
   return { success: true };
@@ -605,6 +616,33 @@ export function sortPlayerHand(roomCode: string, playerId: string, forSeat?: Pla
 
   player.hand.sort(compareTiles);
   return true;
+}
+
+export function transferTile(roomCode: string, playerId: string, tileId: string, fromSeat: PlayerSeat, toSeat: PlayerSeat): { success: boolean; error?: string } {
+  const room = rooms.get(roomCode);
+  if (!room) return { success: false, error: "Room not found" };
+  if (!room.state.started) return { success: false, error: "Game not started" };
+  if (room.state.config.gameMode !== "2-player") return { success: false, error: "Transfer only available in 2-player mode" };
+  if (room.state.phase !== "discard") return { success: false, error: "Can only transfer during discard phase (after drawing)" };
+
+  if (!canPlayerActForSeat(room, playerId, fromSeat)) {
+    return { success: false, error: "You cannot act for the source rack" };
+  }
+  if (!canPlayerActForSeat(room, playerId, toSeat)) {
+    return { success: false, error: "You cannot act for the destination rack" };
+  }
+
+  const fromPlayer = room.state.players.find(p => p.seat === fromSeat);
+  const toPlayer = room.state.players.find(p => p.seat === toSeat);
+  if (!fromPlayer || !toPlayer) return { success: false, error: "Rack not found" };
+
+  const tileIndex = fromPlayer.hand.findIndex(t => t.id === tileId);
+  if (tileIndex === -1) return { success: false, error: "Tile not in source rack" };
+
+  const [tile] = fromPlayer.hand.splice(tileIndex, 1);
+  toPlayer.hand.push(tile);
+
+  return { success: true };
 }
 
 export function getClientView(room: GameRoom, playerId: string): ClientRoomView | null {
@@ -805,6 +843,57 @@ export function botChooseDiscard(hand: Tile[]): string {
   return worstTileId;
 }
 
+export function executeBotTransfers(roomCode: string): void {
+  const room = rooms.get(roomCode);
+  if (!room) return;
+  if (room.state.config.gameMode !== "2-player") return;
+
+  const currentPlayer = room.state.players.find(p => p.seat === room.state.currentTurn);
+  if (!currentPlayer || !currentPlayer.isBot) return;
+
+  const controllerId = currentPlayer.controlledBy || currentPlayer.id;
+  const partner = room.state.players.find(p => p.controlledBy === controllerId);
+  if (!partner) return;
+
+  const hand1Patterns = checkAllPatterns(currentPlayer.hand);
+  const hand2Patterns = checkAllPatterns(partner.hand);
+  const best1 = hand1Patterns[0];
+  const best2 = hand2Patterns[0];
+  if (!best1 || !best2) return;
+
+  for (const tile of [...currentPlayer.hand]) {
+    if (currentPlayer.hand.length <= 1) break;
+
+    const tileLabel = tile.suit === "Joker" ? "Joker" : `${tile.suit} ${tile.value}`;
+    const usefulForHand1 = best1.matched.some(m => m.includes(tileLabel));
+    const usefulForHand2 = best2.missing.some(m => m.includes(tileLabel));
+
+    if (!usefulForHand1 && usefulForHand2) {
+      const idx = currentPlayer.hand.findIndex(t => t.id === tile.id);
+      if (idx !== -1) {
+        const [moved] = currentPlayer.hand.splice(idx, 1);
+        partner.hand.push(moved);
+      }
+    }
+  }
+
+  for (const tile of [...partner.hand]) {
+    if (partner.hand.length <= 1) break;
+
+    const tileLabel = tile.suit === "Joker" ? "Joker" : `${tile.suit} ${tile.value}`;
+    const usefulForHand2 = best2.matched.some(m => m.includes(tileLabel));
+    const usefulForHand1 = best1.missing.some(m => m.includes(tileLabel));
+
+    if (!usefulForHand2 && usefulForHand1) {
+      const idx = partner.hand.findIndex(t => t.id === tile.id);
+      if (idx !== -1) {
+        const [moved] = partner.hand.splice(idx, 1);
+        currentPlayer.hand.push(moved);
+      }
+    }
+  }
+}
+
 export function executeBotDraw(roomCode: string): { success: boolean; seat?: PlayerSeat } {
   const room = rooms.get(roomCode);
   if (!room) return { success: false };
@@ -841,8 +930,19 @@ export function executeBotDiscard(roomCode: string): { success: boolean; seat?: 
   room.state.lastDiscard = discarded;
   room.state.lastDiscardedBy = currentPlayer.seat;
 
-  const currentIdx = SEAT_ORDER.indexOf(room.state.currentTurn);
-  room.state.currentTurn = SEAT_ORDER[(currentIdx + 1) % 4];
+  if (room.state.config.gameMode === "2-player") {
+    const controllerId = currentPlayer.controlledBy || currentPlayer.id;
+    const opponentMain = room.state.players.find(p => p.id !== controllerId && !p.controlledBy);
+    if (opponentMain) {
+      room.state.currentTurn = opponentMain.seat;
+    } else {
+      const currentIdx = SEAT_ORDER.indexOf(room.state.currentTurn);
+      room.state.currentTurn = SEAT_ORDER[(currentIdx + 1) % 4];
+    }
+  } else {
+    const currentIdx = SEAT_ORDER.indexOf(room.state.currentTurn);
+    room.state.currentTurn = SEAT_ORDER[(currentIdx + 1) % 4];
+  }
   room.state.phase = "draw";
 
   return { success: true, seat: currentPlayer.seat };

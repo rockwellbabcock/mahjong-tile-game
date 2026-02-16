@@ -136,5 +136,6 @@ export interface ClientToServerEvents {
   "game:sort": (data?: { seat?: PlayerSeat }) => void;
   "game:reset": () => void;
   "game:timeout-action": (data: { action: TimeoutAction }) => void;
+  "game:transfer": (data: { tileId: string; fromSeat: PlayerSeat; toSeat: PlayerSeat }) => void;
   "game:claim": (data: { claimType: ClaimType; tileIds: string[] }) => void;
 }

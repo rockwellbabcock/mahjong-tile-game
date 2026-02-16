@@ -63,6 +63,7 @@ Preferred communication style: Simple, everyday language.
 - **Hint System** (`client/src/components/HintPanel.tsx`): Shows closest patterns by tiles-away count, expandable detail list
 - **Beginner UI**: Status bar with contextual messages, `GameTooltip` component wraps game terms (Wall, Hand, Discard, Mahjong) with hover explanations
 - **Reconnection System**: When a player disconnects mid-game, their seat is reserved for 60 seconds. A rejoin token (per-player, generated at game start) is stored in sessionStorage. On page refresh, the client auto-attempts rejoin using the token. Other players see a "Waiting for [name] to reconnect..." banner with countdown. After 60s timeout, a dialog offers "End Game" or "Keep Waiting" options. Server-authoritative: the `game:ended` event clears all client state.
+- **Siamese Mahjong (2-Player Mode)**: Implements real Siamese rules — turns alternate between 2 players (not 4 seats). Each player controls 2 racks. Tiles drawn from a shared "Pool" (not "Wall"). Transfer Mode allows moving tiles between racks during discard phase. Bot AI uses `executeBotTransfers()` to optimize both racks before discarding. UI displays both racks side-by-side with "Rack 1" / "Rack 2" labels. Terminology adapts: Wall→Pool, Hand→Rack throughout Siamese UI.
 
 ## External Dependencies
 

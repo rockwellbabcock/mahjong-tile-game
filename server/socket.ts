@@ -26,6 +26,8 @@ import {
   scheduleBotTurn,
   isReadyToStart,
   isCurrentTurnControlledByHuman,
+  transferTile,
+  executeBotTransfers,
 } from "./game-engine";
 import { log } from "./index";
 
@@ -80,6 +82,8 @@ function handleBotTurns(io: Server<ClientToServerEvents, ServerToClientEvents>, 
         if (!discardRoom || discardRoom.state.phase === "won") return;
 
         if (discardRoom.state.phase === "discard") {
+          executeBotTransfers(roomCode);
+
           const discardResult = executeBotDiscard(roomCode);
           if (discardResult.success) {
             broadcastState(io, roomCode);
@@ -264,6 +268,22 @@ export function setupSocket(httpServer: HttpServer): Server<ClientToServerEvents
       if (!roomCode) return;
 
       sortPlayerHand(roomCode, socket.id, data?.seat);
+      broadcastState(io, roomCode);
+    });
+
+    socket.on("game:transfer", ({ tileId, fromSeat, toSeat }) => {
+      const roomCode = playerRooms.get(socket.id);
+      if (!roomCode) {
+        socket.emit("error", { message: "Not in a room" });
+        return;
+      }
+
+      const result = transferTile(roomCode, socket.id, tileId, fromSeat, toSeat);
+      if (!result.success) {
+        socket.emit("error", { message: result.error || "Cannot transfer tile" });
+        return;
+      }
+
       broadcastState(io, roomCode);
     });
 
