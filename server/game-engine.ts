@@ -1,6 +1,7 @@
-import { type Tile, type Suit, type TileValue, type PlayerSeat, type PlayerState, type RoomState, type ClientRoomView, SEAT_ORDER } from "@shared/schema";
+import { type Tile, type Suit, type TileValue, type PlayerSeat, type PlayerState, type RoomState, type ClientRoomView, type DisconnectedPlayerInfo, SEAT_ORDER } from "@shared/schema";
 import { checkForWin } from "@shared/patterns";
 
+const RECONNECT_TIMEOUT_MS = 60_000;
 const SUITS: Suit[] = ["Bam", "Crak", "Dot"];
 const WINDS: TileValue[] = ["East", "South", "West", "North"];
 const DRAGONS: TileValue[] = ["Red", "Green", "White"];
@@ -70,9 +71,19 @@ function generateRoomCode(): string {
   return code;
 }
 
+export interface DisconnectTimer {
+  playerId: string;
+  playerName: string;
+  seat: PlayerSeat;
+  timeoutAt: number;
+  timer: ReturnType<typeof setTimeout>;
+  rejoinToken: string;
+}
+
 export interface GameRoom {
   state: RoomState;
   deck: Tile[];
+  disconnectTimers: Map<string, DisconnectTimer>;
 }
 
 const rooms = new Map<string, GameRoom>();
@@ -107,6 +118,7 @@ export function createRoom(playerId: string, playerName: string): GameRoom {
       started: false,
     },
     deck: [],
+    disconnectTimers: new Map(),
   };
 
   rooms.set(roomCode, room);
@@ -150,20 +162,102 @@ export function getRoomByPlayerId(playerId: string): GameRoom | undefined {
   return undefined;
 }
 
-export function removePlayer(roomCode: string, playerId: string): boolean {
+export function markPlayerDisconnected(roomCode: string, playerId: string): PlayerState | null {
   const room = rooms.get(roomCode);
-  if (!room) return false;
+  if (!room) return null;
+
+  const player = room.state.players.find(p => p.id === playerId);
+  if (!player) return null;
 
   if (room.state.started) {
-    const player = room.state.players.find(p => p.id === playerId);
-    if (player) player.connected = false;
-    return true;
+    player.connected = false;
+    return player;
   }
 
   room.state.players = room.state.players.filter(p => p.id !== playerId);
   if (room.state.players.length === 0) {
     rooms.delete(roomCode);
   }
+  return null;
+}
+
+export function reconnectPlayer(roomCode: string, playerName: string, rejoinToken: string, newSocketId: string): PlayerState | null {
+  const room = rooms.get(roomCode);
+  if (!room) return null;
+  if (!room.state.started) return null;
+
+  const player = room.state.players.find(p => p.name === playerName && !p.connected && p.rejoinToken === rejoinToken);
+  if (!player) return null;
+
+  player.id = newSocketId;
+  player.connected = true;
+
+  const timer = room.disconnectTimers.get(playerName);
+  if (timer) {
+    clearTimeout(timer.timer);
+    room.disconnectTimers.delete(playerName);
+  }
+
+  return player;
+}
+
+function generateRejoinToken(): string {
+  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  let token = "";
+  for (let i = 0; i < 16; i++) {
+    token += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return token;
+}
+
+export function createDisconnectTimer(roomCode: string, player: PlayerState, onTimeout: () => void): { rejoinToken: string; timeoutAt: number } {
+  const room = rooms.get(roomCode);
+  if (!room) return { rejoinToken: "", timeoutAt: 0 };
+
+  const rejoinToken = generateRejoinToken();
+  const timeoutAt = Date.now() + RECONNECT_TIMEOUT_MS;
+
+  const timer = setTimeout(() => {
+    room.disconnectTimers.delete(player.name);
+    onTimeout();
+  }, RECONNECT_TIMEOUT_MS);
+
+  room.disconnectTimers.set(player.name, {
+    playerId: player.id,
+    playerName: player.name,
+    seat: player.seat,
+    timeoutAt,
+    timer,
+    rejoinToken,
+  });
+
+  return { rejoinToken, timeoutAt };
+}
+
+export function getDisconnectedPlayers(roomCode: string): DisconnectedPlayerInfo[] {
+  const room = rooms.get(roomCode);
+  if (!room) return [];
+
+  const result: DisconnectedPlayerInfo[] = [];
+  room.disconnectTimers.forEach((timer) => {
+    result.push({
+      playerName: timer.playerName,
+      seat: timer.seat,
+      timeoutAt: timer.timeoutAt,
+    });
+  });
+  return result;
+}
+
+export function endGame(roomCode: string): boolean {
+  const room = rooms.get(roomCode);
+  if (!room) return false;
+
+  room.disconnectTimers.forEach((timer) => {
+    clearTimeout(timer.timer);
+  });
+  room.disconnectTimers.clear();
+  rooms.delete(roomCode);
   return true;
 }
 
@@ -178,6 +272,7 @@ export function startGame(roomCode: string): boolean {
   for (const player of room.state.players) {
     player.hand = deck.splice(0, 13).sort(compareTiles);
     player.exposures = [];
+    player.rejoinToken = generateRejoinToken();
   }
 
   room.deck = deck;
@@ -272,6 +367,8 @@ export function getClientView(room: GameRoom, playerId: string): import("@shared
     winnerId: room.state.winnerId,
     winnerSeat: room.state.winnerSeat,
     started: room.state.started,
+    disconnectedPlayers: getDisconnectedPlayers(room.state.roomCode),
+    rejoinToken: player.rejoinToken,
   };
 }
 

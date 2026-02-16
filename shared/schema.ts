@@ -47,6 +47,7 @@ export interface PlayerState {
   hand: Tile[];
   exposures: Tile[][];
   connected: boolean;
+  rejoinToken?: string;
 }
 
 export interface RoomState {
@@ -85,6 +86,7 @@ export interface ClientRoomView {
   winnerSeat: PlayerSeat | null;
   started: boolean;
   disconnectedPlayers: DisconnectedPlayerInfo[];
+  rejoinToken?: string;
 }
 
 export interface DisconnectedPlayerInfo {
@@ -93,11 +95,11 @@ export interface DisconnectedPlayerInfo {
   timeoutAt: number;
 }
 
-export type TimeoutAction = "bot" | "end" | "wait";
+export type TimeoutAction = "end" | "wait";
 
 export interface ServerToClientEvents {
   "room:created": (data: { roomCode: string; seat: PlayerSeat }) => void;
-  "room:joined": (data: { roomCode: string; seat: PlayerSeat; playerName: string }) => void;
+  "room:joined": (data: { roomCode: string; seat: PlayerSeat; playerName: string; rejoinToken?: string }) => void;
   "room:player-joined": (data: { playerName: string; seat: PlayerSeat; playerCount: number }) => void;
   "room:player-left": (data: { playerName: string; seat: PlayerSeat; playerCount: number }) => void;
   "game:state": (state: ClientRoomView) => void;
@@ -113,7 +115,7 @@ export interface ServerToClientEvents {
 export interface ClientToServerEvents {
   "room:create": (data: { playerName: string }) => void;
   "room:join": (data: { roomCode: string; playerName: string }) => void;
-  "room:rejoin": (data: { roomCode: string; playerName: string }) => void;
+  "room:rejoin": (data: { roomCode: string; playerName: string; rejoinToken: string }) => void;
   "game:draw": () => void;
   "game:discard": (data: { tileId: string }) => void;
   "game:sort": () => void;

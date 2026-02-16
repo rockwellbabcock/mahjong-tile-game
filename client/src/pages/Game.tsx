@@ -8,7 +8,23 @@ export default function GamePage() {
   const game = useMultiplayerGame();
   const tileStyleValue = useTileStyleState();
 
-  const { lobbyState, gameState, isMyTurn, showHints, hints, winInfo, draw, discard, sortHand, toggleHints, resetGame } = game;
+  const {
+    lobbyState,
+    gameState,
+    isMyTurn,
+    showHints,
+    hints,
+    winInfo,
+    disconnectedPlayer,
+    timedOutPlayer,
+    gameEnded,
+    draw,
+    discard,
+    sortHand,
+    toggleHints,
+    resetGame,
+    handleTimeoutAction,
+  } = game;
 
   if (lobbyState !== "playing" || !gameState) {
     return (
@@ -43,10 +59,13 @@ export default function GamePage() {
           showHints={showHints}
           hints={hints}
           winInfo={winInfo}
+          disconnectedPlayer={disconnectedPlayer}
+          timedOutPlayer={timedOutPlayer}
           onDraw={draw}
           onDiscard={discard}
           onSort={sortHand}
           onToggleHints={toggleHints}
+          onTimeoutAction={handleTimeoutAction}
         />
 
         {winResult && (

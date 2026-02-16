@@ -1,13 +1,13 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { type Tile as TileType, type ClientRoomView, type PlayerSeat, SEAT_ORDER } from "@shared/schema";
+import { type Tile as TileType, type ClientRoomView, type PlayerSeat, type DisconnectedPlayerInfo, type TimeoutAction, SEAT_ORDER } from "@shared/schema";
 import { type PatternMatch } from "@shared/patterns";
 import { Tile, TileBack } from "./Tile";
 import { HintPanel } from "./HintPanel";
 import { GameTooltip } from "./GameTooltip";
 import { Button } from "@/components/ui/button";
-import { ArrowUpDown, Lightbulb, Palette, Copy, Check, Hand } from "lucide-react";
+import { ArrowUpDown, Lightbulb, Palette, Copy, Check, Hand, WifiOff, Clock, X } from "lucide-react";
 import { useTileStyle } from "@/hooks/use-tile-style";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface MultiplayerBoardProps {
   gameState: ClientRoomView;
@@ -25,10 +25,13 @@ interface MultiplayerBoardProps {
     patternName: string;
     description: string;
   } | null;
+  disconnectedPlayer: DisconnectedPlayerInfo | null;
+  timedOutPlayer: DisconnectedPlayerInfo | null;
   onDraw: () => void;
   onDiscard: (id: string) => void;
   onSort: () => void;
   onToggleHints: () => void;
+  onTimeoutAction: (action: TimeoutAction) => void;
 }
 
 const SEAT_LABELS: Record<PlayerSeat, string> = {
@@ -48,16 +51,34 @@ function getRelativePosition(mySeat: PlayerSeat, targetSeat: PlayerSeat): string
   return "Left";
 }
 
+function ReconnectCountdown({ timeoutAt }: { timeoutAt: number }) {
+  const [secondsLeft, setSecondsLeft] = useState(() => Math.max(0, Math.ceil((timeoutAt - Date.now()) / 1000)));
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const remaining = Math.max(0, Math.ceil((timeoutAt - Date.now()) / 1000));
+      setSecondsLeft(remaining);
+      if (remaining <= 0) clearInterval(interval);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [timeoutAt]);
+
+  return <span data-testid="text-reconnect-countdown">{secondsLeft}s</span>;
+}
+
 export function MultiplayerBoard({
   gameState,
   isMyTurn,
   showHints,
   hints,
   winInfo,
+  disconnectedPlayer,
+  timedOutPlayer,
   onDraw,
   onDiscard,
   onSort,
   onToggleHints,
+  onTimeoutAction,
 }: MultiplayerBoardProps) {
   const { tileStyle, cycleTileStyle } = useTileStyle();
   const [copied, setCopied] = useState(false);
@@ -69,6 +90,9 @@ export function MultiplayerBoard({
   }
 
   function getStatusMessage() {
+    if (disconnectedPlayer) {
+      return `Waiting for ${disconnectedPlayer.playerName} to reconnect...`;
+    }
     if (gameState.phase === "won") {
       if (winInfo) {
         return winInfo.winnerId === gameState.players.find(p => p.seat === gameState.mySeat)?.id
@@ -103,6 +127,51 @@ export function MultiplayerBoard({
         >
           {getStatusMessage()}
         </div>
+
+        {disconnectedPlayer && (
+          <div
+            className="px-4 py-3 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800 flex items-center justify-center gap-3"
+            data-testid="banner-disconnected"
+          >
+            <WifiOff className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+            <span className="text-sm font-medium text-amber-800 dark:text-amber-300">
+              Waiting for {disconnectedPlayer.playerName} ({disconnectedPlayer.seat}) to reconnect...
+            </span>
+            <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+              <Clock className="w-3 h-3" />
+              <ReconnectCountdown timeoutAt={disconnectedPlayer.timeoutAt} />
+            </span>
+          </div>
+        )}
+
+        {timedOutPlayer && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" data-testid="dialog-timeout">
+            <div className="bg-card border border-border rounded-md p-6 max-w-sm w-full mx-4 shadow-lg">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+                  <WifiOff className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-foreground" data-testid="text-timeout-title">Player Disconnected</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {timedOutPlayer.playerName} ({timedOutPlayer.seat}) didn't reconnect in time.
+                  </p>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground mb-4">What would you like to do?</p>
+              <div className="flex flex-col gap-2">
+                <Button onClick={() => onTimeoutAction("end")} variant="outline" data-testid="button-timeout-end">
+                  <X className="w-4 h-4 mr-2" />
+                  End Game
+                </Button>
+                <Button onClick={() => onTimeoutAction("wait")} variant="outline" data-testid="button-timeout-wait">
+                  <Clock className="w-4 h-4 mr-2" />
+                  Keep Waiting
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <header className="flex items-center justify-between gap-2 p-3 border-b border-border flex-wrap">
           <div className="flex items-center gap-3">

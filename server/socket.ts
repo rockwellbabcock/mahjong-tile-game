@@ -1,12 +1,14 @@
 import { Server as HttpServer } from "http";
 import { Server, Socket } from "socket.io";
-import { type ServerToClientEvents, type ClientToServerEvents } from "@shared/schema";
+import { type ServerToClientEvents, type ClientToServerEvents, type TimeoutAction } from "@shared/schema";
 import {
   createRoom,
   joinRoom,
   getRoom,
   getRoomByPlayerId,
-  removePlayer,
+  markPlayerDisconnected,
+  reconnectPlayer,
+  createDisconnectTimer,
   startGame,
   drawTile,
   discardTile,
@@ -14,6 +16,7 @@ import {
   getClientView,
   checkWinForPlayer,
   resetGame,
+  endGame,
 } from "./game-engine";
 import { log } from "./index";
 
@@ -26,6 +29,7 @@ function broadcastState(io: Server<ClientToServerEvents, ServerToClientEvents>, 
   if (!room) return;
 
   for (const player of room.state.players) {
+    if (!player.connected) continue;
     const view = getClientView(room, player.id);
     if (view) {
       io.to(player.id).emit("game:state", view);
@@ -45,7 +49,7 @@ export function setupSocket(httpServer: HttpServer): Server<ClientToServerEvents
     socket.on("room:create", ({ playerName }) => {
       const existingRoom = getRoomByPlayerId(socket.id);
       if (existingRoom) {
-        removePlayer(existingRoom.state.roomCode, socket.id);
+        markPlayerDisconnected(existingRoom.state.roomCode, socket.id);
         socket.leave(existingRoom.state.roomCode);
       }
 
@@ -64,7 +68,7 @@ export function setupSocket(httpServer: HttpServer): Server<ClientToServerEvents
       const code = roomCode.toUpperCase();
       const existingRoom = getRoomByPlayerId(socket.id);
       if (existingRoom && existingRoom.state.roomCode !== code) {
-        removePlayer(existingRoom.state.roomCode, socket.id);
+        markPlayerDisconnected(existingRoom.state.roomCode, socket.id);
         socket.leave(existingRoom.state.roomCode);
       }
 
@@ -98,6 +102,31 @@ export function setupSocket(httpServer: HttpServer): Server<ClientToServerEvents
         }
       }
 
+      broadcastState(io, code);
+    });
+
+    socket.on("room:rejoin", ({ roomCode, playerName, rejoinToken }) => {
+      const code = roomCode.toUpperCase();
+
+      const player = reconnectPlayer(code, playerName, rejoinToken, socket.id);
+      if (!player) {
+        socket.emit("error", { message: "Could not rejoin. The game may have ended or the session expired." });
+        return;
+      }
+
+      socket.join(code);
+      playerRooms.set(socket.id, code);
+
+      log(`${playerName} reconnected to room ${code} as ${player.seat}`, "socket");
+
+      socket.emit("room:joined", { roomCode: code, seat: player.seat, playerName });
+
+      io.to(code).emit("player:reconnected", {
+        playerName,
+        seat: player.seat,
+      });
+
+      io.to(code).emit("game:started");
       broadcastState(io, code);
     });
 
@@ -168,22 +197,60 @@ export function setupSocket(httpServer: HttpServer): Server<ClientToServerEvents
       }
     });
 
+    socket.on("game:timeout-action", ({ action }) => {
+      const roomCode = playerRooms.get(socket.id);
+      if (!roomCode) return;
+
+      const room = getRoom(roomCode);
+      if (!room) return;
+
+      if (action === "end") {
+        log(`Game ended in room ${roomCode} by player vote`, "socket");
+        io.to(roomCode).emit("game:ended", { reason: "A player chose to end the game after a disconnect timeout." });
+        endGame(roomCode);
+      } else if (action === "wait") {
+        log(`Players chose to keep waiting in room ${roomCode}`, "socket");
+      }
+    });
+
     socket.on("disconnect", () => {
       const roomCode = playerRooms.get(socket.id);
       if (roomCode) {
         const room = getRoom(roomCode);
         if (room) {
-          const player = room.state.players.find(p => p.id === socket.id);
-          const playerName = player?.name || "Unknown";
-          const playerSeat = player?.seat || "East";
+          const disconnectedPlayer = markPlayerDisconnected(roomCode, socket.id);
 
-          removePlayer(roomCode, socket.id);
+          if (disconnectedPlayer && room.state.started) {
+            const { rejoinToken, timeoutAt } = createDisconnectTimer(roomCode, disconnectedPlayer, () => {
+              const currentRoom = getRoom(roomCode);
+              if (!currentRoom) return;
 
-          io.to(roomCode).emit("room:player-left", {
-            playerName,
-            seat: playerSeat,
-            playerCount: room.state.players.filter(p => p.connected !== false).length,
-          });
+              const player = currentRoom.state.players.find(p => p.name === disconnectedPlayer.name);
+              if (player && !player.connected) {
+                io.to(roomCode).emit("player:timeout", {
+                  playerName: disconnectedPlayer.name,
+                  seat: disconnectedPlayer.seat,
+                  timeoutAt,
+                });
+
+                broadcastState(io, roomCode);
+              }
+            });
+
+            io.to(roomCode).emit("player:disconnected", {
+              playerName: disconnectedPlayer.name,
+              seat: disconnectedPlayer.seat,
+              timeoutAt,
+            });
+
+            log(`Player ${disconnectedPlayer.name} disconnected from room ${roomCode}, rejoinToken=${rejoinToken}, waiting 60s`, "socket");
+          } else if (!disconnectedPlayer) {
+            io.to(roomCode).emit("room:player-left", {
+              playerName: "Unknown",
+              seat: "East",
+              playerCount: room.state.players.length,
+            });
+          }
 
           broadcastState(io, roomCode);
         }

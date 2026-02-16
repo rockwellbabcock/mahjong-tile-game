@@ -62,6 +62,7 @@ Preferred communication style: Simple, everyday language.
 - **Win Detection**: After each draw, `checkForWin()` verifies if hand (must be exactly 14 tiles) matches any pattern. If so, phase becomes "won" and `WinOverlay` component displays.
 - **Hint System** (`client/src/components/HintPanel.tsx`): Shows closest patterns by tiles-away count, expandable detail list
 - **Beginner UI**: Status bar with contextual messages, `GameTooltip` component wraps game terms (Wall, Hand, Discard, Mahjong) with hover explanations
+- **Reconnection System**: When a player disconnects mid-game, their seat is reserved for 60 seconds. A rejoin token (per-player, generated at game start) is stored in sessionStorage. On page refresh, the client auto-attempts rejoin using the token. Other players see a "Waiting for [name] to reconnect..." banner with countdown. After 60s timeout, a dialog offers "End Game" or "Keep Waiting" options. Server-authoritative: the `game:ended` event clears all client state.
 
 ## External Dependencies
 

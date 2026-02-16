@@ -19,7 +19,7 @@ export default function LobbyPage({ game }: LobbyPageProps) {
   const [copied, setCopied] = useState(false);
   const [, setLocation] = useLocation();
 
-  const { lobbyState, roomCode, error, playerCount, createRoom, joinRoom, gameState } = game;
+  const { lobbyState, roomCode, error, playerCount, createRoom, joinRoom, gameState, gameEnded } = game;
 
   function handleCreate() {
     if (!name.trim()) return;
@@ -206,6 +206,12 @@ export default function LobbyPage({ game }: LobbyPageProps) {
             </div>
           </div>
         </Card>
+
+        {gameEnded && (
+          <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md text-center" data-testid="text-game-ended">
+            <p className="text-sm font-medium text-amber-800 dark:text-amber-300">{gameEnded}</p>
+          </div>
+        )}
 
         {error && (
           <p className="text-sm text-destructive text-center" data-testid="text-error">
