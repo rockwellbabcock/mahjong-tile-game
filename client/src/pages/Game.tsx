@@ -12,18 +12,23 @@ export default function GamePage() {
     lobbyState,
     gameState,
     isMyTurn,
+    activeControlSeat,
     showHints,
+    autoShowHints,
     hints,
     winInfo,
     disconnectedPlayer,
     timedOutPlayer,
     gameEnded,
+    activeSuggestionPattern,
     draw,
     discard,
     sortHand,
     toggleHints,
+    toggleAutoShowHints,
     resetGame,
     handleTimeoutAction,
+    selectSuggestionPattern,
   } = game;
 
   if (lobbyState !== "playing" || !gameState) {
@@ -44,6 +49,7 @@ export default function GamePage() {
         matched: [],
         missing: [],
         hint: "",
+        contributingTileIds: [],
         winnerName: winInfo.winnerName,
         winnerSeat: winInfo.winnerSeat,
         isMe: winInfo.winnerId === gameState.players.find(p => p.seat === gameState.mySeat)?.id,
@@ -56,16 +62,21 @@ export default function GamePage() {
         <MultiplayerBoard
           gameState={gameState}
           isMyTurn={isMyTurn}
+          activeControlSeat={activeControlSeat}
           showHints={showHints}
+          autoShowHints={autoShowHints}
           hints={hints}
           winInfo={winInfo}
           disconnectedPlayer={disconnectedPlayer}
           timedOutPlayer={timedOutPlayer}
+          activeSuggestionPattern={activeSuggestionPattern}
           onDraw={draw}
           onDiscard={discard}
           onSort={sortHand}
           onToggleHints={toggleHints}
+          onToggleAutoShowHints={toggleAutoShowHints}
           onTimeoutAction={handleTimeoutAction}
+          onSelectPattern={selectSuggestionPattern}
         />
 
         {winResult && (

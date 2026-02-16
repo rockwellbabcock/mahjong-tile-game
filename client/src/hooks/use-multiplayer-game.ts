@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { type ClientRoomView, type PlayerSeat, type DisconnectedPlayerInfo, type TimeoutAction } from "@shared/schema";
+import { type ClientRoomView, type PlayerSeat, type DisconnectedPlayerInfo, type TimeoutAction, type RoomConfig, type GameMode } from "@shared/schema";
 import { getSocket, type GameSocket } from "@/lib/socket";
 import { getHints, type PatternMatch } from "@shared/patterns";
 
@@ -15,6 +15,7 @@ export function useMultiplayerGame() {
   const [gameState, setGameState] = useState<ClientRoomView | null>(null);
   const [roomCode, setRoomCode] = useState<string | null>(null);
   const [mySeat, setMySeat] = useState<PlayerSeat | null>(null);
+  const [mySeats, setMySeats] = useState<PlayerSeat[]>([]);
   const [playerName, setPlayerName] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [playerCount, setPlayerCount] = useState(0);
@@ -26,9 +27,11 @@ export function useMultiplayerGame() {
     description: string;
   } | null>(null);
   const [showHints, setShowHints] = useState(false);
+  const [autoShowHints, setAutoShowHints] = useState(false);
   const [disconnectedPlayer, setDisconnectedPlayer] = useState<DisconnectedPlayerInfo | null>(null);
   const [timedOutPlayer, setTimedOutPlayer] = useState<DisconnectedPlayerInfo | null>(null);
   const [gameEnded, setGameEnded] = useState<string | null>(null);
+  const [activeSuggestionPattern, setActiveSuggestionPattern] = useState<string | null>(null);
 
   const socketRef = useRef<GameSocket | null>(null);
   const hasAttemptedRejoin = useRef(false);
@@ -75,11 +78,12 @@ export function useMultiplayerGame() {
     socket.on("game:state", (state) => {
       setGameState(state);
       setMySeat(state.mySeat);
+      setMySeats(state.mySeats);
       setRoomCode(state.roomCode);
       if (state.started) {
         setLobbyState("playing");
       }
-      setPlayerCount(state.players.length);
+      setPlayerCount(state.players.filter(p => !p.isBot).length);
 
       if (state.rejoinToken) {
         sessionStorage.setItem(SESSION_KEY_TOKEN, state.rejoinToken);
@@ -120,6 +124,7 @@ export function useMultiplayerGame() {
       setGameState(null);
       setRoomCode(null);
       setMySeat(null);
+      setMySeats([]);
       setDisconnectedPlayer(null);
       setTimedOutPlayer(null);
       sessionStorage.removeItem(SESSION_KEY_ROOM);
@@ -167,12 +172,12 @@ export function useMultiplayerGame() {
     };
   }, []);
 
-  const createRoom = useCallback((name: string) => {
+  const createRoom = useCallback((name: string, config?: RoomConfig) => {
     setPlayerName(name);
     setLobbyState("creating");
     setError(null);
     setGameEnded(null);
-    socketRef.current?.emit("room:create", { playerName: name });
+    socketRef.current?.emit("room:create", { playerName: name, config });
   }, []);
 
   const joinRoom = useCallback((code: string, name: string) => {
@@ -183,24 +188,33 @@ export function useMultiplayerGame() {
     socketRef.current?.emit("room:join", { roomCode: code.toUpperCase(), playerName: name });
   }, []);
 
-  const draw = useCallback(() => {
-    socketRef.current?.emit("game:draw");
+  const draw = useCallback((forSeat?: PlayerSeat) => {
+    socketRef.current?.emit("game:draw", forSeat ? { seat: forSeat } : undefined);
   }, []);
 
-  const discard = useCallback((tileId: string) => {
-    socketRef.current?.emit("game:discard", { tileId });
+  const discard = useCallback((tileId: string, forSeat?: PlayerSeat) => {
+    socketRef.current?.emit("game:discard", { tileId, seat: forSeat });
   }, []);
 
-  const sortHand = useCallback(() => {
-    socketRef.current?.emit("game:sort");
+  const sortHand = useCallback((forSeat?: PlayerSeat) => {
+    socketRef.current?.emit("game:sort", forSeat ? { seat: forSeat } : undefined);
   }, []);
 
   const toggleHints = useCallback(() => {
     setShowHints(prev => !prev);
   }, []);
 
+  const toggleAutoShowHints = useCallback(() => {
+    setAutoShowHints(prev => {
+      const next = !prev;
+      if (next) setShowHints(true);
+      return next;
+    });
+  }, []);
+
   const resetGame = useCallback(() => {
     setWinInfo(null);
+    setActiveSuggestionPattern(null);
     socketRef.current?.emit("game:reset");
   }, []);
 
@@ -211,32 +225,55 @@ export function useMultiplayerGame() {
     }
   }, []);
 
-  const isMyTurn = gameState ? gameState.mySeat === gameState.currentTurn : false;
+  const selectSuggestionPattern = useCallback((patternId: string | null) => {
+    setActiveSuggestionPattern(patternId);
+  }, []);
 
-  const hints = gameState && gameState.myHand.length > 0 ? getHints(gameState.myHand) : null;
+  const isMyTurn = gameState ? gameState.mySeats.includes(gameState.currentTurn) : false;
+  const activeControlSeat = gameState && isMyTurn ? gameState.currentTurn : null;
+
+  const activeHand = gameState ? (
+    activeControlSeat && activeControlSeat !== gameState.mySeat && gameState.partnerHand
+      ? gameState.partnerHand
+      : gameState.myHand
+  ) : [];
+
+  const hints = activeHand.length > 0 ? getHints(activeHand) : null;
+
+  useEffect(() => {
+    if (autoShowHints && gameState && gameState.phase === "discard" && isMyTurn) {
+      setShowHints(true);
+    }
+  }, [autoShowHints, gameState?.myHand.length, gameState?.phase, isMyTurn]);
 
   return {
     lobbyState,
     gameState,
     roomCode,
     mySeat,
+    mySeats,
     playerName,
     error,
     playerCount,
     winInfo,
     isMyTurn,
+    activeControlSeat,
     showHints,
+    autoShowHints,
     hints,
     disconnectedPlayer,
     timedOutPlayer,
     gameEnded,
+    activeSuggestionPattern,
     createRoom,
     joinRoom,
     draw,
     discard,
     sortHand,
     toggleHints,
+    toggleAutoShowHints,
     resetGame,
     handleTimeoutAction,
+    selectSuggestionPattern,
   };
 }

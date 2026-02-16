@@ -9,6 +9,7 @@ export interface PatternMatch {
   matched: string[];
   missing: string[];
   hint: string;
+  contributingTileIds: string[];
 }
 
 type TileKey = string;
@@ -168,31 +169,62 @@ function checkPatternMatch(hand: Tile[], pattern: ConcretePattern): PatternMatch
   const matched: string[] = [];
   const missing: string[] = [];
   let jokersLeft = jokerCount;
+  const contributingTileIds: string[] = [];
 
   let anyDragonsUsed = 0;
   let anyFlowersUsed = 0;
+
+  const usedTileIds = new Set<string>();
 
   for (const req of pattern.required) {
     const need = req.count;
     totalRequired += need;
 
     let have = 0;
+    const matchingTiles: Tile[] = [];
 
     if (req.suit === "any-dragon") {
-      have = Math.max(0, totalDragons - anyDragonsUsed);
-      anyDragonsUsed += Math.min(have, need);
+      const dragons = hand.filter(t => t.suit === "Dragon" && !usedTileIds.has(t.id));
+      have = Math.max(0, dragons.length);
+      const toUse = Math.min(have, need);
+      for (let i = 0; i < toUse; i++) {
+        matchingTiles.push(dragons[i]);
+      }
+      anyDragonsUsed += toUse;
     } else if (req.suit === "any-flower") {
-      have = Math.max(0, totalFlowers - anyFlowersUsed);
-      anyFlowersUsed += Math.min(have, need);
+      const flowers = hand.filter(t => t.suit === "Flower" && !usedTileIds.has(t.id));
+      have = Math.max(0, flowers.length);
+      const toUse = Math.min(have, need);
+      for (let i = 0; i < toUse; i++) {
+        matchingTiles.push(flowers[i]);
+      }
+      anyFlowersUsed += toUse;
     } else {
       const k = tileKey(req.suit as Suit, req.value);
-      have = counts.get(k) || 0;
+      const tiles = hand.filter(t => tileKey(t.suit, t.value) === k && !usedTileIds.has(t.id));
+      have = tiles.length;
+      const toUse = Math.min(have, need);
+      for (let i = 0; i < toUse; i++) {
+        matchingTiles.push(tiles[i]);
+      }
     }
 
-    const used = Math.min(have, need);
+    const used = matchingTiles.length;
     let gap = need - used;
 
+    for (const t of matchingTiles) {
+      usedTileIds.add(t.id);
+      contributingTileIds.push(t.id);
+    }
+
     const jokerFill = Math.min(gap, jokersLeft);
+    if (jokerFill > 0) {
+      const jokers = hand.filter(t => t.suit === "Joker" && !usedTileIds.has(t.id));
+      for (let i = 0; i < jokerFill && i < jokers.length; i++) {
+        usedTileIds.add(jokers[i].id);
+        contributingTileIds.push(jokers[i].id);
+      }
+    }
     jokersLeft -= jokerFill;
     gap -= jokerFill;
 
@@ -226,6 +258,7 @@ function checkPatternMatch(hand: Tile[], pattern: ConcretePattern): PatternMatch
     matched,
     missing,
     hint,
+    contributingTileIds,
   };
 }
 

@@ -40,6 +40,13 @@ export const SEAT_ORDER: PlayerSeat[] = ["East", "South", "West", "North"];
 
 export type ClaimType = "pung" | "kong" | "quint" | "mahjong";
 
+export type GameMode = "4-player" | "2-player";
+
+export interface RoomConfig {
+  gameMode: GameMode;
+  fillWithBots: boolean;
+}
+
 export interface PlayerState {
   id: string;
   name: string;
@@ -48,6 +55,8 @@ export interface PlayerState {
   exposures: Tile[][];
   connected: boolean;
   rejoinToken?: string;
+  isBot?: boolean;
+  controlledBy?: string;
 }
 
 export interface RoomState {
@@ -62,6 +71,7 @@ export interface RoomState {
   winnerId: string | null;
   winnerSeat: PlayerSeat | null;
   started: boolean;
+  config: RoomConfig;
 }
 
 export interface ClientRoomView {
@@ -73,9 +83,11 @@ export interface ClientRoomView {
     handCount: number;
     exposures: Tile[][];
     connected: boolean;
+    isBot?: boolean;
   }[];
   myHand: Tile[];
   mySeat: PlayerSeat;
+  mySeats: PlayerSeat[];
   currentTurn: PlayerSeat;
   phase: GamePhase;
   wallCount: number;
@@ -87,6 +99,8 @@ export interface ClientRoomView {
   started: boolean;
   disconnectedPlayers: DisconnectedPlayerInfo[];
   rejoinToken?: string;
+  gameMode: GameMode;
+  partnerHand?: Tile[];
 }
 
 export interface DisconnectedPlayerInfo {
@@ -113,12 +127,12 @@ export interface ServerToClientEvents {
 }
 
 export interface ClientToServerEvents {
-  "room:create": (data: { playerName: string }) => void;
+  "room:create": (data: { playerName: string; config?: RoomConfig }) => void;
   "room:join": (data: { roomCode: string; playerName: string }) => void;
   "room:rejoin": (data: { roomCode: string; playerName: string; rejoinToken: string }) => void;
-  "game:draw": () => void;
-  "game:discard": (data: { tileId: string }) => void;
-  "game:sort": () => void;
+  "game:draw": (data?: { seat?: PlayerSeat }) => void;
+  "game:discard": (data: { tileId: string; seat?: PlayerSeat }) => void;
+  "game:sort": (data?: { seat?: PlayerSeat }) => void;
   "game:reset": () => void;
   "game:timeout-action": (data: { action: TimeoutAction }) => void;
   "game:claim": (data: { claimType: ClaimType; tileIds: string[] }) => void;

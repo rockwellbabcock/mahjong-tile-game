@@ -3,9 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useMultiplayerGame } from "@/hooks/use-multiplayer-game";
-import { SEAT_ORDER, type PlayerSeat } from "@shared/schema";
+import { SEAT_ORDER, type PlayerSeat, type GameMode, type RoomConfig } from "@shared/schema";
 import { useLocation } from "wouter";
-import { Users, Copy, Check, Loader2, ArrowRight, Plus } from "lucide-react";
+import { Users, Copy, Check, Loader2, ArrowRight, Plus, Bot } from "lucide-react";
 
 interface LobbyPageProps {
   game: ReturnType<typeof useMultiplayerGame>;
@@ -17,6 +17,8 @@ export default function LobbyPage({ game }: LobbyPageProps) {
   });
   const [joinCode, setJoinCode] = useState("");
   const [copied, setCopied] = useState(false);
+  const [gameMode, setGameMode] = useState<GameMode>("4-player");
+  const [fillWithBots, setFillWithBots] = useState(false);
   const [, setLocation] = useLocation();
 
   const { lobbyState, roomCode, error, playerCount, createRoom, joinRoom, gameState, gameEnded } = game;
@@ -24,7 +26,8 @@ export default function LobbyPage({ game }: LobbyPageProps) {
   function handleCreate() {
     if (!name.trim()) return;
     localStorage.setItem("mahjong-player-name", name.trim());
-    createRoom(name.trim());
+    const config: RoomConfig = { gameMode, fillWithBots };
+    createRoom(name.trim(), config);
   }
 
   function handleJoin() {
@@ -44,6 +47,9 @@ export default function LobbyPage({ game }: LobbyPageProps) {
   if (lobbyState === "playing") {
     return null;
   }
+
+  const requiredPlayers = gameMode === "2-player" ? 2 : (fillWithBots ? 1 : 4);
+  const maxHumans = gameMode === "2-player" ? 2 : 4;
 
   if (lobbyState === "waiting" && roomCode) {
     return (
@@ -79,8 +85,11 @@ export default function LobbyPage({ game }: LobbyPageProps) {
             <div className="flex items-center gap-2 mb-3">
               <Users className="w-4 h-4 text-muted-foreground" />
               <span className="text-sm font-medium text-foreground" data-testid="text-player-count">
-                {playerCount} / 4 Players
+                {playerCount} / {maxHumans} Players
               </span>
+              {fillWithBots && (
+                <span className="text-xs text-muted-foreground">(bots will fill remaining)</span>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-2">
@@ -91,21 +100,28 @@ export default function LobbyPage({ game }: LobbyPageProps) {
                     key={seat}
                     className={`flex items-center gap-2 p-3 rounded-md border ${
                       player
-                        ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800"
+                        ? player.isBot
+                          ? "bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800"
+                          : "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800"
                         : "bg-muted/30 border-dashed border-border"
                     }`}
                     data-testid={`seat-${seat.toLowerCase()}`}
                   >
                     <div
                       className={`w-2 h-2 rounded-full ${
-                        player ? "bg-emerald-500" : "bg-muted-foreground/30"
+                        player
+                          ? player.isBot ? "bg-blue-500" : "bg-emerald-500"
+                          : "bg-muted-foreground/30"
                       }`}
                     />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-bold text-muted-foreground uppercase">{seat}</p>
-                      <p className="text-sm font-medium text-foreground truncate">
-                        {player ? player.name : "Waiting..."}
-                      </p>
+                      <div className="flex items-center gap-1">
+                        {player?.isBot && <Bot className="w-3 h-3 text-blue-500 shrink-0" />}
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {player ? player.name : "Waiting..."}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 );
@@ -115,7 +131,12 @@ export default function LobbyPage({ game }: LobbyPageProps) {
 
           <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="w-4 h-4 animate-spin" />
-            <span data-testid="text-waiting-message">Game starts when 4 players join</span>
+            <span data-testid="text-waiting-message">
+              {fillWithBots
+                ? `Game starts when ${maxHumans === 2 ? "2 players" : "you"} join${maxHumans > 1 ? "" : ""} - bots fill remaining spots`
+                : `Game starts when ${maxHumans} players join`
+              }
+            </span>
           </div>
 
           {error && (
@@ -136,7 +157,7 @@ export default function LobbyPage({ game }: LobbyPageProps) {
             Mahjong
           </h1>
           <p className="text-muted-foreground">
-            Play American Mahjong with 4 players online
+            Play American Mahjong online
           </p>
         </div>
 
@@ -153,6 +174,61 @@ export default function LobbyPage({ game }: LobbyPageProps) {
                 maxLength={20}
                 data-testid="input-player-name"
               />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">
+                Game Mode
+              </label>
+              <div className="flex gap-2" data-testid="game-mode-selector">
+                <Button
+                  variant={gameMode === "4-player" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setGameMode("4-player")}
+                  className="flex-1"
+                  data-testid="button-mode-4player"
+                >
+                  4-Player
+                </Button>
+                <Button
+                  variant={gameMode === "2-player" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setGameMode("2-player")}
+                  className="flex-1"
+                  data-testid="button-mode-2player"
+                >
+                  2-Player (Siamese)
+                </Button>
+              </div>
+              {gameMode === "2-player" && (
+                <p className="text-xs text-muted-foreground mt-1.5">
+                  Each player controls 2 positions (you + the player across from you)
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3 py-1">
+              <button
+                type="button"
+                role="checkbox"
+                aria-checked={fillWithBots}
+                onClick={() => setFillWithBots(!fillWithBots)}
+                className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
+                  fillWithBots
+                    ? "bg-primary border-primary text-primary-foreground"
+                    : "border-muted-foreground/40 bg-transparent"
+                }`}
+                data-testid="checkbox-fill-bots"
+              >
+                {fillWithBots && <Check className="w-3 h-3" />}
+              </button>
+              <label
+                className="text-sm text-foreground cursor-pointer select-none"
+                onClick={() => setFillWithBots(!fillWithBots)}
+              >
+                Fill empty spots with bots
+              </label>
+              <Bot className="w-4 h-4 text-muted-foreground shrink-0" />
             </div>
 
             <div className="border-t border-border pt-4">

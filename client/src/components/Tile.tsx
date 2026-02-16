@@ -9,6 +9,7 @@ interface TileProps {
   isInteractive?: boolean;
   isRecent?: boolean;
   size?: "sm" | "md" | "lg";
+  dimmed?: boolean;
 }
 
 const SEASON_NAMES = ["Spring", "Summer", "Fall", "Winter"];
@@ -279,7 +280,7 @@ function renderText(tile: TileType, size: "sm" | "md" | "lg") {
   };
 }
 
-export function Tile({ tile, onClick, isInteractive = false, isRecent = false, size = "md" }: TileProps) {
+export function Tile({ tile, onClick, isInteractive = false, isRecent = false, size = "md", dimmed = false }: TileProps) {
   const { tileStyle } = useTileStyle();
 
   const rendered =
@@ -303,7 +304,8 @@ export function Tile({ tile, onClick, isInteractive = false, isRecent = false, s
         rendered.colorClass,
         isInteractive && "cursor-pointer hover:shadow-md hover:border-current",
         !isInteractive && "cursor-default",
-        isRecent && "ring-2 ring-orange-400 ring-offset-1 ring-offset-background"
+        isRecent && "ring-2 ring-orange-400 ring-offset-1 ring-offset-background",
+        dimmed && "opacity-40"
       )}
     >
       {rendered.content}

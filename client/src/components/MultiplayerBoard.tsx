@@ -5,14 +5,16 @@ import { Tile, TileBack } from "./Tile";
 import { HintPanel } from "./HintPanel";
 import { GameTooltip } from "./GameTooltip";
 import { Button } from "@/components/ui/button";
-import { ArrowUpDown, Lightbulb, Palette, Copy, Check, Hand, WifiOff, Clock, X } from "lucide-react";
+import { ArrowUpDown, Lightbulb, Palette, Copy, Check, Hand, WifiOff, Clock, X, Bot, Eye } from "lucide-react";
 import { useTileStyle } from "@/hooks/use-tile-style";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 
 interface MultiplayerBoardProps {
   gameState: ClientRoomView;
   isMyTurn: boolean;
+  activeControlSeat: PlayerSeat | null;
   showHints: boolean;
+  autoShowHints: boolean;
   hints: {
     closest: PatternMatch[];
     bestHint: string;
@@ -27,11 +29,14 @@ interface MultiplayerBoardProps {
   } | null;
   disconnectedPlayer: DisconnectedPlayerInfo | null;
   timedOutPlayer: DisconnectedPlayerInfo | null;
-  onDraw: () => void;
-  onDiscard: (id: string) => void;
-  onSort: () => void;
+  activeSuggestionPattern: string | null;
+  onDraw: (forSeat?: PlayerSeat) => void;
+  onDiscard: (id: string, forSeat?: PlayerSeat) => void;
+  onSort: (forSeat?: PlayerSeat) => void;
   onToggleHints: () => void;
+  onToggleAutoShowHints: () => void;
   onTimeoutAction: (action: TimeoutAction) => void;
+  onSelectPattern: (patternId: string | null) => void;
 }
 
 const SEAT_LABELS: Record<PlayerSeat, string> = {
@@ -69,25 +74,41 @@ function ReconnectCountdown({ timeoutAt }: { timeoutAt: number }) {
 export function MultiplayerBoard({
   gameState,
   isMyTurn,
+  activeControlSeat,
   showHints,
+  autoShowHints,
   hints,
   winInfo,
   disconnectedPlayer,
   timedOutPlayer,
+  activeSuggestionPattern,
   onDraw,
   onDiscard,
   onSort,
   onToggleHints,
+  onToggleAutoShowHints,
   onTimeoutAction,
+  onSelectPattern,
 }: MultiplayerBoardProps) {
   const { tileStyle, cycleTileStyle } = useTileStyle();
   const [copied, setCopied] = useState(false);
+
+  const highlightedTileIds = useMemo(() => {
+    if (!activeSuggestionPattern || !hints) return new Set<string>();
+    const pattern = hints.closest.find(p => p.patternId === activeSuggestionPattern);
+    if (!pattern) return new Set<string>();
+    return new Set(pattern.contributingTileIds);
+  }, [activeSuggestionPattern, hints]);
 
   function handleCopyCode() {
     navigator.clipboard.writeText(gameState.roomCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
+
+  const isPlayingPartner = activeControlSeat && activeControlSeat !== gameState.mySeat;
+  const displayHand = isPlayingPartner && gameState.partnerHand ? gameState.partnerHand : gameState.myHand;
+  const displaySeat = activeControlSeat || gameState.mySeat;
 
   function getStatusMessage() {
     if (disconnectedPlayer) {
@@ -102,14 +123,20 @@ export function MultiplayerBoard({
       return "Game over!";
     }
     if (isMyTurn) {
-      if (gameState.phase === "draw") return "Your turn - click Draw to pick a tile from the wall.";
-      return "Your turn - pick a tile from your hand to discard it.";
+      const prefix = isPlayingPartner ? `Your partner's turn (${displaySeat})` : "Your turn";
+      if (gameState.phase === "draw") return `${prefix} - click Draw to pick a tile from the wall.`;
+      return `${prefix} - pick a tile from your hand to discard it.`;
     }
     const currentPlayer = gameState.players.find(p => p.seat === gameState.currentTurn);
-    return `Waiting for ${currentPlayer?.name || gameState.currentTurn} to ${gameState.phase === "draw" ? "draw" : "discard"}...`;
+    const nameLabel = currentPlayer?.isBot ? `${currentPlayer.name}` : (currentPlayer?.name || gameState.currentTurn);
+    return `Waiting for ${nameLabel} to ${gameState.phase === "draw" ? "draw" : "discard"}...`;
   }
 
-  const otherPlayers = gameState.players.filter(p => p.seat !== gameState.mySeat);
+  const otherPlayers = gameState.players.filter(p => {
+    if (p.seat === gameState.mySeat) return false;
+    if (gameState.gameMode === "2-player" && gameState.mySeats.includes(p.seat)) return false;
+    return true;
+  });
 
   return (
     <div className="flex h-[100dvh] w-full" data-testid="game-board">
@@ -209,7 +236,9 @@ export function MultiplayerBoard({
               {gameState.phase === "won"
                 ? "Game Over"
                 : isMyTurn
-                  ? (gameState.phase === "draw" ? "Your turn: Draw" : "Your turn: Discard")
+                  ? (gameState.phase === "draw"
+                    ? `${isPlayingPartner ? displaySeat + "'s" : "Your"} turn: Draw`
+                    : `${isPlayingPartner ? displaySeat + "'s" : "Your"} turn: Discard`)
                   : `${gameState.currentTurn}'s turn`
               }
             </span>
@@ -219,9 +248,19 @@ export function MultiplayerBoard({
               data-testid="button-hint"
             >
               <Lightbulb className="w-4 h-4 mr-1" />
-              Hint
+              Suggest
             </Button>
-            <Button variant="outline" size="sm" onClick={onSort} data-testid="button-sort">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onToggleAutoShowHints}
+              className={autoShowHints ? "bg-emerald-100 dark:bg-emerald-900/30 border-emerald-300 dark:border-emerald-700" : ""}
+              data-testid="button-auto-hints"
+            >
+              <Eye className="w-4 h-4 mr-1" />
+              Auto
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => onSort(activeControlSeat || undefined)} data-testid="button-sort">
               <ArrowUpDown className="w-4 h-4 mr-1" />
               Sort
             </Button>
@@ -234,7 +273,7 @@ export function MultiplayerBoard({
 
         <div className="flex-1 flex flex-col items-center justify-between p-4 gap-3 overflow-y-auto">
           <div className="w-full max-w-3xl">
-            <div className="grid grid-cols-3 gap-2 mb-3">
+            <div className={`grid gap-2 mb-3 ${otherPlayers.length <= 2 ? "grid-cols-2" : "grid-cols-3"}`}>
               {otherPlayers.map((player) => {
                 const isCurrentTurn = player.seat === gameState.currentTurn;
                 return (
@@ -250,11 +289,14 @@ export function MultiplayerBoard({
                     <div className="flex items-center justify-between gap-2">
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5">
-                          <div className={`w-2 h-2 rounded-full ${player.connected ? "bg-emerald-500" : "bg-red-500"}`} />
+                          <div className={`w-2 h-2 rounded-full ${player.connected ? (player.isBot ? "bg-blue-500" : "bg-emerald-500") : "bg-red-500"}`} />
                           <span className="text-xs font-bold text-muted-foreground uppercase">{player.seat}</span>
                           <span className="text-xs text-muted-foreground">({getRelativePosition(gameState.mySeat, player.seat)})</span>
                         </div>
-                        <p className="text-sm font-medium text-foreground truncate">{player.name}</p>
+                        <div className="flex items-center gap-1">
+                          {player.isBot && <Bot className="w-3 h-3 text-blue-500 shrink-0" data-testid={`bot-icon-${player.seat.toLowerCase()}`} />}
+                          <p className="text-sm font-medium text-foreground truncate">{player.name}</p>
+                        </div>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         <Hand className="w-3 h-3 text-muted-foreground" />
@@ -280,6 +322,8 @@ export function MultiplayerBoard({
                     closest={hints.closest}
                     bestHint={hints.bestHint}
                     tilesAway={hints.tilesAway}
+                    activeSuggestionPattern={activeSuggestionPattern}
+                    onSelectPattern={onSelectPattern}
                   />
                 </div>
               )}
@@ -287,8 +331,8 @@ export function MultiplayerBoard({
 
             {isMyTurn && gameState.phase === "draw" && (
               <div className="flex justify-center mb-3">
-                <Button onClick={onDraw} data-testid="button-draw">
-                  Draw Tile
+                <Button onClick={() => onDraw(activeControlSeat || undefined)} data-testid="button-draw">
+                  Draw Tile {isPlayingPartner ? `(${displaySeat})` : ""}
                 </Button>
               </div>
             )}
@@ -304,9 +348,13 @@ export function MultiplayerBoard({
         <footer className="border-t border-border p-4" data-testid="player-hand-area">
           <div className="flex items-center justify-center gap-2 mb-3">
             <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider text-center" data-testid="text-hand-label">
-              Your <GameTooltip term="hand">Hand</GameTooltip> ({gameState.myHand.length} tiles)
+              {isPlayingPartner ? (
+                <>Partner's <GameTooltip term="hand">Hand</GameTooltip> ({displayHand.length} tiles)</>
+              ) : (
+                <>Your <GameTooltip term="hand">Hand</GameTooltip> ({displayHand.length} tiles)</>
+              )}
               <span className="ml-2 text-xs font-bold text-muted-foreground">
-                - {gameState.mySeat}
+                - {displaySeat}
               </span>
             </h3>
             {isMyTurn && gameState.phase === "discard" && (
@@ -318,16 +366,41 @@ export function MultiplayerBoard({
 
           <div className="flex items-end justify-center gap-1 w-full overflow-x-auto pb-2">
             <div className="flex items-center justify-center gap-1 p-3 bg-card rounded-md border border-card-border" data-testid="hand-main">
-              {gameState.myHand.map((tile) => (
-                <Tile
-                  key={tile.id}
-                  tile={tile}
-                  isInteractive={isMyTurn && gameState.phase === "discard"}
-                  onClick={() => onDiscard(tile.id)}
-                />
-              ))}
+              {displayHand.map((tile) => {
+                const isHighlighted = highlightedTileIds.has(tile.id);
+                return (
+                  <div
+                    key={tile.id}
+                    className={`relative ${
+                      isHighlighted && activeSuggestionPattern
+                        ? "ring-2 ring-blue-400 dark:ring-blue-500 rounded-md"
+                        : ""
+                    }`}
+                  >
+                    <Tile
+                      tile={tile}
+                      isInteractive={isMyTurn && gameState.phase === "discard"}
+                      onClick={() => onDiscard(tile.id, activeControlSeat || undefined)}
+                      dimmed={activeSuggestionPattern ? !isHighlighted : false}
+                    />
+                  </div>
+                );
+              })}
             </div>
           </div>
+
+          {gameState.gameMode === "2-player" && gameState.partnerHand && !isPlayingPartner && (
+            <div className="mt-3">
+              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider text-center mb-2" data-testid="text-partner-hand-label">
+                Partner's Hand ({gameState.partnerHand.length} tiles) - {gameState.mySeats.find(s => s !== gameState.mySeat)}
+              </h3>
+              <div className="flex items-center justify-center gap-1 p-2 bg-card/50 rounded-md border border-dashed border-border" data-testid="hand-partner">
+                {gameState.partnerHand.map((tile) => (
+                  <Tile key={tile.id} tile={tile} size="sm" />
+                ))}
+              </div>
+            </div>
+          )}
         </footer>
       </div>
 
