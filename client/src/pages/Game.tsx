@@ -18,6 +18,7 @@ export default function GamePage() {
     discardTile,
     sortHand,
     toggleHints,
+    testWin,
   } = useGameLogic();
 
   const tileStyleValue = useTileStyleState();
@@ -49,6 +50,7 @@ export default function GamePage() {
           onSort={sortHand}
           onReset={initGame}
           onToggleHints={toggleHints}
+          onTestWin={testWin}
         />
 
         {winResult && (

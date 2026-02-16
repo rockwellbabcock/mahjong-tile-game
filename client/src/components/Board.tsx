@@ -5,7 +5,7 @@ import { Tile, TileBack } from "./Tile";
 import { HintPanel } from "./HintPanel";
 import { GameTooltip } from "./GameTooltip";
 import { Button } from "@/components/ui/button";
-import { RotateCcw, ArrowUpDown, Lightbulb, Palette } from "lucide-react";
+import { RotateCcw, ArrowUpDown, Lightbulb, Palette, Trophy } from "lucide-react";
 import { useTileStyle } from "@/hooks/use-tile-style";
 
 interface BoardProps {
@@ -24,6 +24,7 @@ interface BoardProps {
   onSort: () => void;
   onReset: () => void;
   onToggleHints: () => void;
+  onTestWin: () => void;
 }
 
 export function Board({
@@ -38,6 +39,7 @@ export function Board({
   onSort,
   onReset,
   onToggleHints,
+  onTestWin,
 }: BoardProps) {
   const drawnTile = lastDrawnTileId
     ? hand.find(t => t.id === lastDrawnTileId)
@@ -110,6 +112,10 @@ export function Board({
             <Button variant="outline" size="sm" onClick={onReset} data-testid="button-reset">
               <RotateCcw className="w-4 h-4 mr-1" />
               Reset
+            </Button>
+            <Button variant="outline" size="sm" onClick={onTestWin} data-testid="button-test-win">
+              <Trophy className="w-4 h-4 mr-1" />
+              Test Win
             </Button>
             <Button
               variant="outline"

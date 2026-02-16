@@ -158,6 +158,35 @@ export function useGameLogic() {
     setShowHints(prev => !prev);
   }, []);
 
+  const testWin = useCallback(() => {
+    let idCounter = 9000;
+    const makeTile = (suit: Suit, value: TileValue): Tile => ({
+      id: `test-${suit}-${value}-${idCounter++}`,
+      suit,
+      value,
+      isJoker: suit === "Joker",
+    });
+
+    const winningHand: Tile[] = [
+      makeTile("Bam", 1), makeTile("Bam", 1),
+      makeTile("Bam", 2), makeTile("Bam", 2),
+      makeTile("Bam", 3), makeTile("Bam", 3),
+      makeTile("Bam", 4), makeTile("Bam", 4),
+      makeTile("Bam", 5), makeTile("Bam", 5),
+      makeTile("Bam", 6), makeTile("Bam", 6),
+      makeTile("Bam", 7), makeTile("Bam", 7),
+    ];
+
+    winningHand.sort(compareTiles);
+    const win = checkForWin(winningHand);
+    setHand(winningHand);
+    setLastDrawnTileId(winningHand[winningHand.length - 1].id);
+    if (win) {
+      setWinResult(win);
+      setPhase("won");
+    }
+  }, []);
+
   const hints = hand.length > 0 ? getHints(hand) : null;
 
   return {
@@ -173,5 +202,6 @@ export function useGameLogic() {
     discardTile,
     sortHand,
     toggleHints,
+    testWin,
   };
 }

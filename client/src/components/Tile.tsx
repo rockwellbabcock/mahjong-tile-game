@@ -104,9 +104,9 @@ function renderClassic(tile: TileType, size: "sm" | "md" | "lg") {
   let colorKey: string = tile.suit;
 
   if (tile.suit === "Dragon") {
-    if (tile.value === "Red") { displayValue = "\u4E2D"; icon = "\uD83D\uDD34"; }
-    if (tile.value === "Green") { displayValue = "\u767C"; icon = "\uD83D\uDFE2"; }
-    if (tile.value === "White") { displayValue = "\u25A1"; icon = "\uD83C\uDFAF"; }
+    if (tile.value === "Red") { displayValue = "\u4E2D"; icon = "\uD83C\uDC04"; }
+    if (tile.value === "Green") { displayValue = "\u767C"; icon = "\uD83D\uDC09"; }
+    if (tile.value === "White") { displayValue = "\u25A1"; icon = "\uD83E\uDDFC"; }
     colorKey = "Dragon";
   }
 
