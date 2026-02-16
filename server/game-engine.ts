@@ -1,4 +1,4 @@
-import { type Tile, type Suit, type TileValue, type PlayerSeat, type PlayerState, type RoomState, type ClientRoomView, type DisconnectedPlayerInfo, type RoomConfig, type GameMode, SEAT_ORDER } from "@shared/schema";
+import { type Tile, type Suit, type TileValue, type PlayerSeat, type PlayerState, type RoomState, type ClientRoomView, type ClientCharlestonView, type DisconnectedPlayerInfo, type RoomConfig, type GameMode, type CharlestonState, type CharlestonDirection, SEAT_ORDER } from "@shared/schema";
 import { checkForWin, checkAllPatterns } from "@shared/patterns";
 
 const RECONNECT_TIMEOUT_MS = 60_000;
@@ -511,7 +511,6 @@ export function startGame(roomCode: string): boolean {
   room.deck = deck;
   room.state.wallCount = deck.length;
   room.state.currentTurn = "East";
-  room.state.phase = "draw";
   room.state.discardPile = [];
   room.state.lastDiscard = null;
   room.state.lastDiscardedBy = null;
@@ -519,7 +518,255 @@ export function startGame(roomCode: string): boolean {
   room.state.winnerSeat = null;
   room.state.started = true;
 
+  room.state.charleston = createCharlestonState();
+  room.state.phase = "charleston";
+
   return true;
+}
+
+const CHARLESTON_PASSES: { round: 1 | 2; direction: CharlestonDirection }[] = [
+  { round: 1, direction: "right" },
+  { round: 1, direction: "across" },
+  { round: 1, direction: "left" },
+  { round: 2, direction: "left" },
+  { round: 2, direction: "across" },
+  { round: 2, direction: "right" },
+];
+
+function createCharlestonState(): CharlestonState {
+  return {
+    round: 1,
+    passIndex: 0,
+    direction: "right",
+    selections: {},
+    readyPlayers: [],
+    secondCharlestonOffered: false,
+    secondCharlestonVotes: {},
+    skipped: false,
+  };
+}
+
+function getCharlestonHumanSeats(room: GameRoom): PlayerSeat[] {
+  const seats: PlayerSeat[] = [];
+  for (const p of room.state.players) {
+    if (!p.isBot && !p.controlledBy) {
+      seats.push(p.seat);
+    }
+  }
+  return seats;
+}
+
+function getCharlestonAllSeats(room: GameRoom): PlayerSeat[] {
+  return room.state.players.map(p => p.seat);
+}
+
+function getTargetSeat(fromSeat: PlayerSeat, direction: CharlestonDirection): PlayerSeat {
+  const idx = SEAT_ORDER.indexOf(fromSeat);
+  switch (direction) {
+    case "right": return SEAT_ORDER[(idx + 1) % 4];
+    case "across": return SEAT_ORDER[(idx + 2) % 4];
+    case "left": return SEAT_ORDER[(idx + 3) % 4];
+  }
+}
+
+export function charlestonSelectTile(roomCode: string, playerId: string, tileId: string): { success: boolean; error?: string } {
+  const room = rooms.get(roomCode);
+  if (!room) return { success: false, error: "Room not found" };
+  if (room.state.phase !== "charleston") return { success: false, error: "Not in Charleston phase" };
+  if (!room.state.charleston) return { success: false, error: "No Charleston state" };
+
+  const player = room.state.players.find(p => p.id === playerId);
+  if (!player) return { success: false, error: "Player not found" };
+
+  const seat = player.seat;
+  const charleston = room.state.charleston;
+
+  if (charleston.readyPlayers.includes(seat)) {
+    return { success: false, error: "Already submitted for this pass" };
+  }
+
+  const selected = charleston.selections[seat] || [];
+  const tileInHand = player.hand.find(t => t.id === tileId);
+  if (!tileInHand) return { success: false, error: "Tile not in your hand" };
+
+  const existingIndex = selected.indexOf(tileId);
+  if (existingIndex >= 0) {
+    selected.splice(existingIndex, 1);
+  } else {
+    if (selected.length >= 3) return { success: false, error: "Already selected 3 tiles" };
+    selected.push(tileId);
+  }
+
+  charleston.selections[seat] = selected;
+  return { success: true };
+}
+
+export function charlestonReady(roomCode: string, playerId: string): { success: boolean; allReady?: boolean; error?: string } {
+  const room = rooms.get(roomCode);
+  if (!room) return { success: false, error: "Room not found" };
+  if (room.state.phase !== "charleston") return { success: false, error: "Not in Charleston phase" };
+  if (!room.state.charleston) return { success: false, error: "No Charleston state" };
+
+  const player = room.state.players.find(p => p.id === playerId);
+  if (!player) return { success: false, error: "Player not found" };
+
+  const seat = player.seat;
+  const charleston = room.state.charleston;
+
+  if (charleston.readyPlayers.includes(seat)) {
+    return { success: false, error: "Already ready" };
+  }
+
+  const selected = charleston.selections[seat] || [];
+  if (selected.length !== 3) return { success: false, error: "Must select exactly 3 tiles" };
+
+  charleston.readyPlayers.push(seat);
+
+  const allSeats = getCharlestonAllSeats(room);
+  const allReady = allSeats.every(s => charleston.readyPlayers.includes(s));
+
+  return { success: true, allReady };
+}
+
+export function executeCharlestonPass(roomCode: string): boolean {
+  const room = rooms.get(roomCode);
+  if (!room || !room.state.charleston) return false;
+
+  const charleston = room.state.charleston;
+  const direction = charleston.direction;
+
+  const tilesToPass: Record<string, Tile[]> = {};
+
+  for (const p of room.state.players) {
+    const selectedIds = charleston.selections[p.seat] || [];
+    const tiles: Tile[] = [];
+    for (const id of selectedIds) {
+      const idx = p.hand.findIndex(t => t.id === id);
+      if (idx >= 0) {
+        tiles.push(p.hand[idx]);
+        p.hand.splice(idx, 1);
+      }
+    }
+    tilesToPass[p.seat] = tiles;
+  }
+
+  for (const p of room.state.players) {
+    const sourceSeat = getSourceSeat(p.seat, direction);
+    const incoming = tilesToPass[sourceSeat] || [];
+    p.hand.push(...incoming);
+    p.hand.sort(compareTiles);
+  }
+
+  const nextPassIndex = charleston.passIndex + 1;
+
+  if (nextPassIndex === 3) {
+    charleston.secondCharlestonOffered = true;
+    charleston.selections = {};
+    charleston.readyPlayers = [];
+    charleston.passIndex = nextPassIndex;
+    return true;
+  }
+
+  if (nextPassIndex >= 6 || (charleston.round === 2 && nextPassIndex >= 6)) {
+    endCharleston(room);
+    return true;
+  }
+
+  const nextPass = CHARLESTON_PASSES[nextPassIndex];
+  charleston.passIndex = nextPassIndex;
+  charleston.round = nextPass.round;
+  charleston.direction = nextPass.direction;
+  charleston.selections = {};
+  charleston.readyPlayers = [];
+
+  return true;
+}
+
+function getSourceSeat(toSeat: PlayerSeat, direction: CharlestonDirection): PlayerSeat {
+  const idx = SEAT_ORDER.indexOf(toSeat);
+  switch (direction) {
+    case "right": return SEAT_ORDER[(idx + 3) % 4];
+    case "across": return SEAT_ORDER[(idx + 2) % 4];
+    case "left": return SEAT_ORDER[(idx + 1) % 4];
+  }
+}
+
+export function charlestonVote(roomCode: string, playerId: string, accept: boolean): { success: boolean; decided?: boolean; accepted?: boolean; error?: string } {
+  const room = rooms.get(roomCode);
+  if (!room || !room.state.charleston) return { success: false, error: "Room not found" };
+  if (!room.state.charleston.secondCharlestonOffered) return { success: false, error: "Second Charleston not offered" };
+
+  const player = room.state.players.find(p => p.id === playerId);
+  if (!player) return { success: false, error: "Player not found" };
+
+  room.state.charleston.secondCharlestonVotes[player.seat] = accept;
+
+  const humanSeats = getCharlestonHumanSeats(room);
+  const allVoted = humanSeats.every(s => room.state.charleston!.secondCharlestonVotes[s] !== undefined);
+
+  if (!allVoted) return { success: true, decided: false };
+
+  const allAccepted = humanSeats.every(s => room.state.charleston!.secondCharlestonVotes[s] === true);
+
+  if (allAccepted) {
+    const charleston = room.state.charleston;
+    charleston.secondCharlestonOffered = false;
+    charleston.round = 2;
+    charleston.passIndex = 3;
+    charleston.direction = "left";
+    charleston.selections = {};
+    charleston.readyPlayers = [];
+    charleston.secondCharlestonVotes = {};
+    return { success: true, decided: true, accepted: true };
+  } else {
+    endCharleston(room);
+    return { success: true, decided: true, accepted: false };
+  }
+}
+
+export function charlestonSkip(roomCode: string, playerId: string): boolean {
+  const room = rooms.get(roomCode);
+  if (!room || !room.state.charleston) return false;
+  if (room.state.phase !== "charleston") return false;
+
+  endCharleston(room);
+  return true;
+}
+
+function endCharleston(room: GameRoom): void {
+  room.state.phase = "draw";
+  room.state.currentTurn = "East";
+  room.state.charleston = undefined;
+}
+
+export function charlestonBotAutoSelect(roomCode: string): void {
+  const room = rooms.get(roomCode);
+  if (!room || !room.state.charleston) return;
+
+  const charleston = room.state.charleston;
+
+  for (const p of room.state.players) {
+    if (!p.isBot) continue;
+    if (charleston.readyPlayers.includes(p.seat)) continue;
+
+    const hand = [...p.hand];
+    hand.sort(compareTiles);
+    const selected = hand.slice(0, 3).map(t => t.id);
+    charleston.selections[p.seat] = selected;
+    charleston.readyPlayers.push(p.seat);
+  }
+}
+
+export function charlestonBotVote(roomCode: string): void {
+  const room = rooms.get(roomCode);
+  if (!room || !room.state.charleston) return;
+
+  for (const p of room.state.players) {
+    if (!p.isBot) continue;
+    if (p.controlledBy) continue;
+    if (room.state.charleston.secondCharlestonVotes[p.seat] !== undefined) continue;
+    room.state.charleston.secondCharlestonVotes[p.seat] = true;
+  }
 }
 
 export function drawTile(roomCode: string, playerId: string, forSeat?: PlayerSeat): { success: boolean; error?: string } {
@@ -623,7 +870,7 @@ export function transferTile(roomCode: string, playerId: string, tileId: string,
   if (!room) return { success: false, error: "Room not found" };
   if (!room.state.started) return { success: false, error: "Game not started" };
   if (room.state.config.gameMode !== "2-player") return { success: false, error: "Transfer only available in 2-player mode" };
-  if (room.state.phase !== "discard") return { success: false, error: "Can only transfer during discard phase (after drawing)" };
+  if (room.state.phase !== "draw" && room.state.phase !== "discard") return { success: false, error: "Can only transfer during your turn" };
 
   if (!canPlayerActForSeat(room, playerId, fromSeat)) {
     return { success: false, error: "You cannot act for the source rack" };
@@ -693,6 +940,21 @@ export function getClientView(room: GameRoom, playerId: string): ClientRoomView 
     rejoinToken: player.rejoinToken,
     gameMode: room.state.config.gameMode,
     partnerHand,
+    charleston: room.state.charleston ? getCharlestonView(room.state.charleston, player.seat) : undefined,
+  };
+}
+
+function getCharlestonView(charleston: CharlestonState, mySeat: PlayerSeat): ClientCharlestonView {
+  return {
+    round: charleston.round,
+    passIndex: charleston.passIndex,
+    direction: charleston.direction,
+    mySelectedTileIds: charleston.selections[mySeat] || [],
+    readyCount: charleston.readyPlayers.length,
+    totalPlayers: 4,
+    secondCharlestonOffered: charleston.secondCharlestonOffered,
+    mySecondVote: charleston.secondCharlestonVotes[mySeat],
+    skipped: charleston.skipped,
   };
 }
 
@@ -754,12 +1016,14 @@ export function resetGame(roomCode: string): boolean {
   room.deck = deck;
   room.state.wallCount = deck.length;
   room.state.currentTurn = "East";
-  room.state.phase = "draw";
   room.state.discardPile = [];
   room.state.lastDiscard = null;
   room.state.lastDiscardedBy = null;
   room.state.winnerId = null;
   room.state.winnerSeat = null;
+
+  room.state.charleston = createCharlestonState();
+  room.state.phase = "charleston";
 
   return true;
 }

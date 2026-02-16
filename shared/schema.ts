@@ -2,11 +2,9 @@ import { pgTable, text, serial, integer, boolean, jsonb } from "drizzle-orm/pg-c
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// We'll use a simple table for potential future saved games, 
-// though current state is client-side as requested.
 export const games = pgTable("games", {
   id: serial("id").primaryKey(),
-  state: jsonb("state").notNull(), // Stores the entire game state
+  state: jsonb("state").notNull(),
   createdAt: text("created_at").notNull().default("CURRENT_TIMESTAMP"),
 });
 
@@ -27,13 +25,13 @@ export type SeasonName = "Spring" | "Summer" | "Fall" | "Winter";
 export type TileValue = number | WindValue | DragonValue | FlowerName | SeasonName | null; 
 
 export interface Tile {
-  id: string; // Unique ID for React keys
+  id: string;
   suit: Suit;
   value: TileValue; 
   isJoker?: boolean;
 }
 
-export type GamePhase = "draw" | "discard" | "won";
+export type GamePhase = "charleston" | "draw" | "discard" | "won";
 
 export type PlayerSeat = "East" | "South" | "West" | "North";
 export const SEAT_ORDER: PlayerSeat[] = ["East", "South", "West", "North"];
@@ -41,6 +39,19 @@ export const SEAT_ORDER: PlayerSeat[] = ["East", "South", "West", "North"];
 export type ClaimType = "pung" | "kong" | "quint" | "mahjong";
 
 export type GameMode = "4-player" | "2-player";
+
+export type CharlestonDirection = "right" | "across" | "left";
+
+export interface CharlestonState {
+  round: 1 | 2;
+  passIndex: number;
+  direction: CharlestonDirection;
+  selections: Partial<Record<PlayerSeat, string[]>>;
+  readyPlayers: PlayerSeat[];
+  secondCharlestonOffered: boolean;
+  secondCharlestonVotes: Partial<Record<PlayerSeat, boolean>>;
+  skipped: boolean;
+}
 
 export interface RoomConfig {
   gameMode: GameMode;
@@ -72,6 +83,19 @@ export interface RoomState {
   winnerSeat: PlayerSeat | null;
   started: boolean;
   config: RoomConfig;
+  charleston?: CharlestonState;
+}
+
+export interface ClientCharlestonView {
+  round: 1 | 2;
+  passIndex: number;
+  direction: CharlestonDirection;
+  mySelectedTileIds: string[];
+  readyCount: number;
+  totalPlayers: number;
+  secondCharlestonOffered: boolean;
+  mySecondVote?: boolean;
+  skipped: boolean;
 }
 
 export interface ClientRoomView {
@@ -102,6 +126,7 @@ export interface ClientRoomView {
   rejoinToken?: string;
   gameMode: GameMode;
   partnerHand?: Tile[];
+  charleston?: ClientCharlestonView;
 }
 
 export interface DisconnectedPlayerInfo {
@@ -139,4 +164,8 @@ export interface ClientToServerEvents {
   "game:transfer": (data: { tileId: string; fromSeat: PlayerSeat; toSeat: PlayerSeat }) => void;
   "game:claim": (data: { claimType: ClaimType; tileIds: string[] }) => void;
   "game:test-siamese-win": () => void;
+  "game:charleston-select": (data: { tileId: string }) => void;
+  "game:charleston-ready": () => void;
+  "game:charleston-skip": () => void;
+  "game:charleston-vote": (data: { accept: boolean }) => void;
 }

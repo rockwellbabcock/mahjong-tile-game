@@ -488,7 +488,7 @@ export function MultiplayerBoard({
         <footer className="border-t border-border p-2 sm:p-4" data-testid="player-hand-area">
           {isSiamese && gameState.partnerHand ? (
             <>
-              {isMyTurn && gameState.phase === "discard" && (
+              {isMyTurn && (gameState.phase === "draw" || gameState.phase === "discard") && (
                 <div className="flex items-center justify-center gap-2 mb-2">
                   <Button
                     variant="outline"
@@ -503,7 +503,7 @@ export function MultiplayerBoard({
                   <span className="text-xs text-muted-foreground">
                     {transferMode
                       ? "Click a tile to move it to your other rack"
-                      : "Click a tile to discard it"
+                      : gameState.phase === "discard" ? "Click a tile to discard it" : "Draw a tile or transfer between racks"
                     }
                   </span>
                 </div>
@@ -530,11 +530,11 @@ export function MultiplayerBoard({
                           <Tile
                             tile={tile}
                             size={tileSize}
-                            isInteractive={isMyTurn && gameState.phase === "discard"}
+                            isInteractive={isMyTurn && (gameState.phase === "discard" || (gameState.phase === "draw" && transferMode))}
                             onClick={() => {
                               if (transferMode && partnerSeat) {
                                 onTransfer(tile.id, gameState.mySeat, partnerSeat);
-                              } else {
+                              } else if (gameState.phase === "discard") {
                                 onDiscard(tile.id, gameState.mySeat);
                               }
                             }}
@@ -558,11 +558,11 @@ export function MultiplayerBoard({
                           <Tile
                             tile={tile}
                             size={tileSize}
-                            isInteractive={isMyTurn && gameState.phase === "discard"}
+                            isInteractive={isMyTurn && (gameState.phase === "discard" || (gameState.phase === "draw" && transferMode))}
                             onClick={() => {
                               if (transferMode) {
                                 onTransfer(tile.id, partnerSeat, gameState.mySeat);
-                              } else {
+                              } else if (gameState.phase === "discard") {
                                 onDiscard(tile.id, partnerSeat);
                               }
                             }}
