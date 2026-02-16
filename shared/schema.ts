@@ -84,7 +84,16 @@ export interface ClientRoomView {
   winnerId: string | null;
   winnerSeat: PlayerSeat | null;
   started: boolean;
+  disconnectedPlayers: DisconnectedPlayerInfo[];
 }
+
+export interface DisconnectedPlayerInfo {
+  playerName: string;
+  seat: PlayerSeat;
+  timeoutAt: number;
+}
+
+export type TimeoutAction = "bot" | "end" | "wait";
 
 export interface ServerToClientEvents {
   "room:created": (data: { roomCode: string; seat: PlayerSeat }) => void;
@@ -94,15 +103,21 @@ export interface ServerToClientEvents {
   "game:state": (state: ClientRoomView) => void;
   "game:started": () => void;
   "game:win": (data: { winnerId: string; winnerName: string; winnerSeat: PlayerSeat; patternName: string; description: string }) => void;
+  "player:disconnected": (data: DisconnectedPlayerInfo) => void;
+  "player:reconnected": (data: { playerName: string; seat: PlayerSeat }) => void;
+  "player:timeout": (data: DisconnectedPlayerInfo) => void;
+  "game:ended": (data: { reason: string }) => void;
   "error": (data: { message: string }) => void;
 }
 
 export interface ClientToServerEvents {
   "room:create": (data: { playerName: string }) => void;
   "room:join": (data: { roomCode: string; playerName: string }) => void;
+  "room:rejoin": (data: { roomCode: string; playerName: string }) => void;
   "game:draw": () => void;
   "game:discard": (data: { tileId: string }) => void;
   "game:sort": () => void;
   "game:reset": () => void;
+  "game:timeout-action": (data: { action: TimeoutAction }) => void;
   "game:claim": (data: { claimType: ClaimType; tileIds: string[] }) => void;
 }
