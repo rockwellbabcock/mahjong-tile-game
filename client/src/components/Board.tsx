@@ -1,19 +1,28 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { type Tile as TileType } from "@shared/schema";
+import { type PatternMatch } from "@/lib/patterns";
 import { Tile, TileBack } from "./Tile";
+import { HintPanel } from "./HintPanel";
+import { GameTooltip } from "./GameTooltip";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { RotateCcw, ArrowUpDown } from "lucide-react";
+import { RotateCcw, ArrowUpDown, Lightbulb } from "lucide-react";
 
 interface BoardProps {
   deckCount: number;
   discards: TileType[];
   hand: TileType[];
-  phase: "draw" | "discard";
+  phase: "draw" | "discard" | "won";
   lastDrawnTileId: string | null;
+  showHints: boolean;
+  hints: {
+    closest: PatternMatch[];
+    bestHint: string;
+    tilesAway: number;
+  } | null;
   onDiscard: (id: string) => void;
   onSort: () => void;
   onReset: () => void;
+  onToggleHints: () => void;
 }
 
 export function Board({
@@ -22,9 +31,12 @@ export function Board({
   hand,
   phase,
   lastDrawnTileId,
+  showHints,
+  hints,
   onDiscard,
   onSort,
   onReset,
+  onToggleHints,
 }: BoardProps) {
   const drawnTile = lastDrawnTileId
     ? hand.find(t => t.id === lastDrawnTileId)
@@ -34,17 +46,33 @@ export function Board({
     ? hand.filter(t => t.id !== lastDrawnTileId)
     : hand;
 
+  function getStatusMessage() {
+    if (phase === "won") return "You won! Great job!";
+    if (phase === "draw") return "Drawing a tile from the wall...";
+    if (deckCount === 0) return "The wall is empty. Game over!";
+    return "Your turn - pick a tile from your hand to discard it.";
+  }
+
   return (
     <div className="flex h-[100dvh] w-full" data-testid="game-board">
-      {/* Left: Main game area (hand + wall info) */}
       <div className="flex-1 flex flex-col min-w-0">
+
+        {/* Status Bar */}
+        <div
+          className="px-4 py-2 bg-blue-50 dark:bg-blue-950/30 border-b border-blue-200 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-300 font-medium text-center"
+          data-testid="status-bar"
+        >
+          {getStatusMessage()}
+        </div>
 
         {/* Top Bar */}
         <header className="flex items-center justify-between gap-2 p-3 border-b border-border flex-wrap">
           <div className="flex items-center gap-3">
             <TileBack count={deckCount} />
             <div>
-              <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider" data-testid="text-wall-label">Wall</h2>
+              <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider" data-testid="text-wall-label">
+                <GameTooltip term="wall">Wall</GameTooltip>
+              </h2>
               <p className="text-xl font-bold text-foreground" data-testid="text-wall-count">{deckCount} tiles</p>
             </div>
           </div>
@@ -54,12 +82,24 @@ export function Board({
               className={`inline-block px-3 py-1 rounded-md text-xs font-bold border ${
                 phase === "discard"
                   ? "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800"
-                  : "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800"
+                  : phase === "won"
+                    ? "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800"
+                    : "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800"
               }`}
               data-testid="text-phase"
             >
-              {phase === "discard" ? "Click a tile to discard" : "Drawing..."}
+              {phase === "discard" ? "Your turn: discard a tile" : phase === "won" ? "Mahjong!" : "Drawing..."}
             </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onToggleHints}
+              className={showHints ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700" : ""}
+              data-testid="button-hint"
+            >
+              <Lightbulb className="w-4 h-4 mr-1" />
+              Hint
+            </Button>
             <Button variant="outline" size="sm" onClick={onSort} data-testid="button-sort">
               <ArrowUpDown className="w-4 h-4 mr-1" />
               Sort
@@ -71,19 +111,35 @@ export function Board({
           </div>
         </header>
 
-        {/* Center area - empty table feel */}
-        <div className="flex-1 flex items-center justify-center p-4">
-          <p className="text-muted-foreground text-sm">Click a tile in your hand below to discard it</p>
+        {/* Center area */}
+        <div className="flex-1 flex flex-col items-center justify-center p-4 gap-4 overflow-y-auto">
+          <AnimatePresence>
+            {showHints && hints && (
+              <div className="w-full max-w-lg">
+                <HintPanel
+                  closest={hints.closest}
+                  bestHint={hints.bestHint}
+                  tilesAway={hints.tilesAway}
+                />
+              </div>
+            )}
+          </AnimatePresence>
+
+          {!showHints && (
+            <p className="text-muted-foreground text-sm">
+              Click a tile in your <GameTooltip term="hand">hand</GameTooltip> below to <GameTooltip term="discard">discard</GameTooltip> it.
+              Use the <GameTooltip term="pattern">Hint</GameTooltip> button to see how close you are to <GameTooltip term="mahjong">Mahjong</GameTooltip>.
+            </p>
+          )}
         </div>
 
         {/* Bottom: Player Hand */}
         <footer className="border-t border-border p-4" data-testid="player-hand-area">
           <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 text-center" data-testid="text-hand-label">
-            Your Hand ({hand.length} tiles)
+            Your <GameTooltip term="hand">Hand</GameTooltip> ({hand.length} tiles)
           </h3>
 
           <div className="flex items-end justify-center gap-2 w-full overflow-x-auto pb-2">
-            {/* Main Hand */}
             <div className="flex items-center justify-center gap-1 p-3 bg-card rounded-md border border-card-border" data-testid="hand-main">
               {mainHand.map((tile) => (
                 <Tile
@@ -95,7 +151,6 @@ export function Board({
               ))}
             </div>
 
-            {/* Drawn Tile (separated visually) */}
             <AnimatePresence>
               {drawnTile && (
                 <motion.div
@@ -125,7 +180,7 @@ export function Board({
       <aside className="w-64 md:w-72 lg:w-80 border-l border-border flex flex-col bg-card" data-testid="discard-pile-area">
         <div className="p-3 border-b border-border">
           <h3 className="text-sm font-bold text-foreground uppercase tracking-wider" data-testid="text-discard-label">
-            Discarded Tiles
+            <GameTooltip term="discard">Discarded Tiles</GameTooltip>
           </h3>
           <p className="text-xs text-muted-foreground" data-testid="text-discard-count">
             {discards.length} tile{discards.length !== 1 ? "s" : ""}

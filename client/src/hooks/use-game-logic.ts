@@ -1,7 +1,6 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { type Tile, type Suit, type TileValue } from "@shared/schema";
-
-// --- Constants & Helpers ---
+import { checkForWin, getHints, type PatternMatch } from "@/lib/patterns";
 
 const SUITS: Suit[] = ["Bam", "Crak", "Dot"];
 const WINDS: TileValue[] = ["East", "South", "West", "North"];
@@ -22,27 +21,21 @@ function generateDeck(): Tile[] {
     }
   };
 
-  // Numbered Suits (1-9, 4 of each)
   SUITS.forEach((suit) => {
     for (let i = 1; i <= 9; i++) {
       addTile(suit, i);
     }
   });
 
-  // Winds (4 of each)
   WINDS.forEach((wind) => {
     addTile("Wind", wind);
   });
 
-  // Dragons (4 of each)
   DRAGONS.forEach((dragon) => {
     addTile("Dragon", dragon);
   });
 
-  // Flowers (8 total)
   addTile("Flower", null, 8);
-
-  // Jokers (8 total)
   addTile("Joker", null, 8);
 
   return shuffle(deck);
@@ -57,72 +50,110 @@ function shuffle(array: Tile[]): Tile[] {
   return newArray;
 }
 
+function compareTiles(a: Tile, b: Tile): number {
+  const suitOrder: Record<string, number> = {
+    Joker: 0, Flower: 1, Dragon: 2, Wind: 3, Bam: 4, Crak: 5, Dot: 6,
+  };
+
+  if (suitOrder[a.suit] !== suitOrder[b.suit]) {
+    return suitOrder[a.suit] - suitOrder[b.suit];
+  }
+
+  if (typeof a.value === "number" && typeof b.value === "number") {
+    return a.value - b.value;
+  }
+
+  if (typeof a.value === "string" && typeof b.value === "string") {
+    return a.value.localeCompare(b.value);
+  }
+
+  return 0;
+}
+
 export function useGameLogic() {
   const [deck, setDeck] = useState<Tile[]>([]);
   const [hand, setHand] = useState<Tile[]>([]);
   const [discards, setDiscards] = useState<Tile[]>([]);
-  const [phase, setPhase] = useState<"draw" | "discard">("draw");
-  const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
+  const [phase, setPhase] = useState<"draw" | "discard" | "won">("draw");
   const [lastDrawnTileId, setLastDrawnTileId] = useState<string | null>(null);
+  const [winResult, setWinResult] = useState<PatternMatch | null>(null);
+  const [showHints, setShowHints] = useState(false);
+  const drawCounterRef = useRef(0);
 
   const initGame = useCallback(() => {
     const newDeck = generateDeck();
     const newHand = newDeck.splice(0, 13);
-    
-    // Sort initial hand
     newHand.sort(compareTiles);
+
+    drawCounterRef.current += 1;
 
     setDeck(newDeck);
     setHand(newHand);
     setDiscards([]);
-    setPhase("draw"); // Start with a draw
-    setSelectedTileId(null);
     setLastDrawnTileId(null);
+    setWinResult(null);
+    setShowHints(false);
+    setPhase("draw");
   }, []);
 
-  // Auto-draw when phase becomes 'draw'
   useEffect(() => {
-    if (phase === "draw" && deck.length > 0) {
-      // Small delay for visual pacing
-      const timer = setTimeout(() => {
-        const newDeck = [...deck];
+    if (phase !== "draw" || deck.length === 0) return;
+
+    const capturedCounter = drawCounterRef.current;
+    const timer = setTimeout(() => {
+      if (drawCounterRef.current !== capturedCounter) return;
+
+      setDeck(prevDeck => {
+        const newDeck = [...prevDeck];
         const drawnTile = newDeck.shift();
-        
-        if (drawnTile) {
-          setDeck(newDeck);
-          setHand(prev => [...prev, drawnTile]);
+        if (!drawnTile) return prevDeck;
+
+        setHand(prevHand => {
+          const newHand = [...prevHand, drawnTile];
+
+          const win = checkForWin(newHand);
+          if (win) {
+            setWinResult(win);
+            setPhase("won");
+          } else {
+            setPhase("discard");
+          }
+
           setLastDrawnTileId(drawnTile.id);
-          setPhase("discard");
-        }
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [phase, deck]);
+          return newHand;
+        });
 
-  const discardTile = (tileId: string) => {
-    if (phase !== "discard") return;
+        return newDeck;
+      });
+    }, 500);
 
-    const tileIndex = hand.findIndex(t => t.id === tileId);
-    if (tileIndex === -1) return;
+    return () => clearTimeout(timer);
+  }, [phase, deck.length]);
 
-    const newHand = [...hand];
-    const [discardedTile] = newHand.splice(tileIndex, 1);
+  const discardTile = useCallback((tileId: string) => {
+    setHand(prevHand => {
+      const tileIndex = prevHand.findIndex(t => t.id === tileId);
+      if (tileIndex === -1) return prevHand;
 
-    // Sort hand after discard to keep it tidy, or keep it as is?
-    // American MJ players usually keep hands sorted. 
-    // Let's NOT auto-sort on discard to prevent jarring jumps, 
-    // but we will provide a manual sort button.
-    
-    setHand(newHand);
-    setDiscards(prev => [discardedTile, ...prev]); // Add to front for visual stack
-    setPhase("draw");
-    setSelectedTileId(null);
-    setLastDrawnTileId(null);
-  };
+      const newHand = [...prevHand];
+      const [discardedTile] = newHand.splice(tileIndex, 1);
+      setDiscards(prev => [discardedTile, ...prev]);
+      setLastDrawnTileId(null);
+      drawCounterRef.current += 1;
+      setPhase("draw");
+      return newHand;
+    });
+  }, []);
 
-  const sortHand = () => {
+  const sortHand = useCallback(() => {
     setHand(prev => [...prev].sort(compareTiles));
-  };
+  }, []);
+
+  const toggleHints = useCallback(() => {
+    setShowHints(prev => !prev);
+  }, []);
+
+  const hints = hand.length > 0 ? getHints(hand) : null;
 
   return {
     deck,
@@ -130,31 +161,12 @@ export function useGameLogic() {
     discards,
     phase,
     lastDrawnTileId,
+    winResult,
+    showHints,
+    hints,
     initGame,
     discardTile,
     sortHand,
+    toggleHints,
   };
-}
-
-// Helper to sort tiles logically
-function compareTiles(a: Tile, b: Tile): number {
-  const suitOrder: Record<string, number> = { 
-    Joker: 0, Flower: 1, Dragon: 2, Wind: 3, Bam: 4, Crak: 5, Dot: 6 
-  };
-  
-  if (suitOrder[a.suit] !== suitOrder[b.suit]) {
-    return suitOrder[a.suit] - suitOrder[b.suit];
-  }
-
-  // If same suit, sort by value
-  if (typeof a.value === "number" && typeof b.value === "number") {
-    return a.value - b.value;
-  }
-  
-  // String values (Dragons/Winds)
-  if (typeof a.value === "string" && typeof b.value === "string") {
-    return a.value.localeCompare(b.value);
-  }
-
-  return 0;
 }

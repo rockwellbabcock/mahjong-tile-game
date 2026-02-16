@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useGameLogic } from "@/hooks/use-game-logic";
 import { Board } from "@/components/Board";
+import { WinOverlay } from "@/components/WinOverlay";
 
 export default function GamePage() {
   const {
@@ -9,9 +10,13 @@ export default function GamePage() {
     discards,
     phase,
     lastDrawnTileId,
+    winResult,
+    showHints,
+    hints,
     initGame,
     discardTile,
     sortHand,
+    toggleHints,
   } = useGameLogic();
 
   useEffect(() => {
@@ -34,10 +39,17 @@ export default function GamePage() {
         hand={hand}
         phase={phase}
         lastDrawnTileId={lastDrawnTileId}
+        showHints={showHints}
+        hints={hints}
         onDiscard={discardTile}
         onSort={sortHand}
         onReset={initGame}
+        onToggleHints={toggleHints}
       />
+
+      {winResult && (
+        <WinOverlay result={winResult} onPlayAgain={initGame} />
+      )}
     </div>
   );
 }
