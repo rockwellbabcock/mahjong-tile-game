@@ -51,11 +51,15 @@ Preferred communication style: Simple, everyday language.
 
 ### Game Architecture
 
-- The Mahjong deck consists of: numbered suits (Bam, Crak, Dot: 1-9, 4 each), Winds (4 each), Dragons (4 each), 8 Flowers, 8 Jokers — standard American Mahjong set
-- Game phases alternate between "draw" and "discard"
+- The Mahjong deck consists of: numbered suits (Bam, Crak, Dot: 1-9, 4 each), Winds (4 each), Dragons (4 each), 8 Flowers, 8 Jokers — standard American Mahjong set (152 tiles)
+- Game phases: "draw" (auto-draws after 500ms), "discard" (player picks a tile to remove), "won" (winning hand detected)
 - All game logic (deck generation, shuffling, drawing, discarding, sorting) lives in `client/src/hooks/use-game-logic.ts`
-- The `Board` component renders the wall count, discard pile, player hand, and action buttons
+- The `Board` component renders the wall count, discard pile, player hand, action buttons, status bar, and hint panel
 - Individual tiles are rendered by the `Tile` component with suit-based color coding
+- **Pattern Engine** (`client/src/lib/patterns.ts`): Defines ~21 American MahJong winning patterns (consecutive runs, even/odd patterns, seven pairs, winds & dragons, three triples) across all 3 numbered suits. Supports "any Dragon" and "any Flower" flexible matching plus Joker wildcards.
+- **Win Detection**: After each draw, `checkForWin()` verifies if hand (must be exactly 14 tiles) matches any pattern. If so, phase becomes "won" and `WinOverlay` component displays.
+- **Hint System** (`client/src/components/HintPanel.tsx`): Shows closest patterns by tiles-away count, expandable detail list
+- **Beginner UI**: Status bar with contextual messages, `GameTooltip` component wraps game terms (Wall, Hand, Discard, Mahjong) with hover explanations
 
 ## External Dependencies
 
