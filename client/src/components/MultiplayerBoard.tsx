@@ -5,7 +5,7 @@ import { Tile, TileBack } from "./Tile";
 import { HintPanel } from "./HintPanel";
 import { GameTooltip } from "./GameTooltip";
 import { Button } from "@/components/ui/button";
-import { ArrowUpDown, Lightbulb, Palette, Copy, Check, Hand, WifiOff, Clock, X, Bot, Eye, ArrowLeftRight, Gem } from "lucide-react";
+import { ArrowUpDown, Lightbulb, Palette, Copy, Check, Hand, WifiOff, Clock, X, Bot, Eye, ArrowLeftRight, Gem, Layers } from "lucide-react";
 import { useTileStyle } from "@/hooks/use-tile-style";
 import { useTheme } from "@/hooks/use-theme";
 import { useState, useEffect, useMemo } from "react";
@@ -97,6 +97,26 @@ export function MultiplayerBoard({
   const { theme, toggleTheme } = useTheme();
   const [copied, setCopied] = useState(false);
   const [transferMode, setTransferMode] = useState(false);
+  const [showDiscardMobile, setShowDiscardMobile] = useState(false);
+
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  useEffect(() => {
+    if (showDiscardMobile) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [showDiscardMobile]);
+  const tileSize = isMobile ? "sm" : "md";
+  const discardTileSize = isMobile ? "xs" : "sm";
 
   const highlightedTileIds = useMemo(() => {
     if (!activeSuggestionPattern || !hints) return new Set<string>();
@@ -263,17 +283,29 @@ export function MultiplayerBoard({
                 : isMyTurn
                   ? (gameState.phase === "draw"
                     ? (isSiamese ? "Your turn: Draw" : `${isPlayingPartner ? displaySeat + "'s" : "Your"} turn: Draw`)
-                    : (isSiamese ? "Your turn: Discard / Transfer" : `${isPlayingPartner ? displaySeat + "'s" : "Your"} turn: Discard`))
+                    : (isSiamese
+                      ? (<><span className="sm:hidden">Discard</span><span className="hidden sm:inline">Your turn: Discard / Transfer</span></>)
+                      : `${isPlayingPartner ? displaySeat + "'s" : "Your"} turn: Discard`))
                   : `${gameState.currentTurn}'s turn`
               }
             </span>
 
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowDiscardMobile(!showDiscardMobile)}
+              className="md:hidden"
+              data-testid="button-show-discards-mobile"
+            >
+              <Layers className="w-4 h-4" />
+              <span className="ml-1">{gameState.discardPile.length}</span>
+            </Button>
             <Button variant="outline" size="sm" onClick={onToggleHints}
               className={showHints ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700" : ""}
               data-testid="button-hint"
             >
-              <Lightbulb className="w-4 h-4 mr-1" />
-              Suggest
+              <Lightbulb className="w-4 h-4" />
+              <span className="hidden sm:inline ml-1">Suggest</span>
             </Button>
             <Button
               variant="outline"
@@ -282,16 +314,16 @@ export function MultiplayerBoard({
               className={autoShowHints ? "bg-emerald-100 dark:bg-emerald-900/30 border-emerald-300 dark:border-emerald-700" : ""}
               data-testid="button-auto-hints"
             >
-              <Eye className="w-4 h-4 mr-1" />
-              Auto
+              <Eye className="w-4 h-4" />
+              <span className="hidden sm:inline ml-1">Auto</span>
             </Button>
             <Button variant="outline" size="sm" onClick={() => onSort(activeControlSeat || undefined)} data-testid="button-sort">
-              <ArrowUpDown className="w-4 h-4 mr-1" />
-              Sort
+              <ArrowUpDown className="w-4 h-4" />
+              <span className="hidden sm:inline ml-1">Sort</span>
             </Button>
             <Button variant="outline" size="sm" onClick={cycleTileStyle} data-testid="button-tile-style">
-              <Palette className="w-4 h-4 mr-1" />
-              {tileStyle === "classic" ? "Classic" : tileStyle === "emoji" ? "Modern" : "Text"}
+              <Palette className="w-4 h-4" />
+              <span className="hidden sm:inline ml-1">{tileStyle === "classic" ? "Classic" : tileStyle === "emoji" ? "Modern" : "Text"}</span>
             </Button>
             <Button
               variant="outline"
@@ -300,18 +332,18 @@ export function MultiplayerBoard({
               className={theme === "jade" ? "bg-emerald-100 dark:bg-emerald-900/30 border-emerald-300 dark:border-emerald-700" : ""}
               data-testid="button-theme-toggle"
             >
-              <Gem className="w-4 h-4 mr-1" />
-              {theme === "jade" ? "Jade" : "Felt"}
+              <Gem className="w-4 h-4" />
+              <span className="hidden sm:inline ml-1">{theme === "jade" ? "Jade" : "Felt"}</span>
             </Button>
           </div>
         </header>
 
-        <div className="flex-1 flex flex-col items-center justify-between p-4 gap-3 overflow-y-auto">
+        <div className="flex-1 flex flex-col items-center justify-between p-2 sm:p-4 gap-2 sm:gap-3 overflow-y-auto">
           <div className="w-full max-w-3xl">
             {isSiamese && opponentInfo ? (
               <div className="mb-3">
                 <div
-                  className={`p-3 rounded-md border ${
+                  className={`p-2 sm:p-3 rounded-md border ${
                     otherPlayers.some(p => p.seat === gameState.currentTurn)
                       ? "border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950/30"
                       : "border-border bg-card"
@@ -372,7 +404,7 @@ export function MultiplayerBoard({
                 return (
                   <div
                     key={player.seat}
-                    className={`p-3 rounded-md border ${
+                    className={`p-2 sm:p-3 rounded-md border ${
                       isCurrentTurn
                         ? "border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950/30"
                         : "border-border bg-card"
@@ -439,7 +471,7 @@ export function MultiplayerBoard({
           </div>
         </div>
 
-        <footer className="border-t border-border p-4" data-testid="player-hand-area">
+        <footer className="border-t border-border p-2 sm:p-4" data-testid="player-hand-area">
           {isSiamese && gameState.partnerHand ? (
             <>
               {isMyTurn && gameState.phase === "discard" && (
@@ -463,12 +495,12 @@ export function MultiplayerBoard({
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                 <div>
                   <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider text-center mb-2" data-testid="text-hand-label">
                     Rack 1 ({gameState.myHand.length} tiles) - {gameState.mySeat}
                   </h3>
-                  <div className="flex items-center justify-center gap-1 p-3 bg-card rounded-md border border-card-border flex-wrap" data-testid="hand-main">
+                  <div className="flex items-center justify-center gap-0.5 sm:gap-1 p-2 sm:p-3 bg-card rounded-md border border-card-border flex-wrap" data-testid="hand-main">
                     {gameState.myHand.map((tile) => {
                       const isHighlighted = highlightedTileIds.has(tile.id);
                       const partnerSeat = gameState.mySeats.find(s => s !== gameState.mySeat);
@@ -483,6 +515,7 @@ export function MultiplayerBoard({
                         >
                           <Tile
                             tile={tile}
+                            size={tileSize}
                             isInteractive={isMyTurn && gameState.phase === "discard"}
                             onClick={() => {
                               if (transferMode && partnerSeat) {
@@ -503,13 +536,14 @@ export function MultiplayerBoard({
                   <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider text-center mb-2" data-testid="text-partner-hand-label">
                     Rack 2 ({gameState.partnerHand.length} tiles) - {gameState.mySeats.find(s => s !== gameState.mySeat)}
                   </h3>
-                  <div className="flex items-center justify-center gap-1 p-3 bg-card rounded-md border border-card-border flex-wrap" data-testid="hand-partner">
+                  <div className="flex items-center justify-center gap-0.5 sm:gap-1 p-2 sm:p-3 bg-card rounded-md border border-card-border flex-wrap" data-testid="hand-partner">
                     {gameState.partnerHand.map((tile) => {
                       const partnerSeat = gameState.mySeats.find(s => s !== gameState.mySeat)!;
                       return (
                         <div key={tile.id} className="relative">
                           <Tile
                             tile={tile}
+                            size={tileSize}
                             isInteractive={isMyTurn && gameState.phase === "discard"}
                             onClick={() => {
                               if (transferMode) {
@@ -539,8 +573,8 @@ export function MultiplayerBoard({
                 )}
               </div>
 
-              <div className="flex items-end justify-center gap-1 w-full overflow-x-auto pb-2">
-                <div className="flex items-center justify-center gap-1 p-3 bg-card rounded-md border border-card-border" data-testid="hand-main">
+              <div className="flex items-end justify-center gap-1 w-full pb-2 flex-wrap">
+                <div className="flex items-center justify-center gap-0.5 sm:gap-1 p-2 sm:p-3 bg-card rounded-md border border-card-border flex-wrap" data-testid="hand-main">
                   {displayHand.map((tile) => {
                     const isHighlighted = highlightedTileIds.has(tile.id);
                     return (
@@ -554,6 +588,7 @@ export function MultiplayerBoard({
                       >
                         <Tile
                           tile={tile}
+                          size={tileSize}
                           isInteractive={isMyTurn && gameState.phase === "discard"}
                           onClick={() => onDiscard(tile.id, activeControlSeat || undefined)}
                           dimmed={activeSuggestionPattern ? !isHighlighted : false}
@@ -568,7 +603,7 @@ export function MultiplayerBoard({
         </footer>
       </div>
 
-      <aside className="w-64 md:w-72 lg:w-80 border-l border-border flex flex-col bg-card" data-testid="discard-pile-area">
+      <aside className="hidden md:flex w-64 md:w-72 lg:w-80 border-l border-border flex-col bg-card" data-testid="discard-pile-area">
         <div className="p-3 border-b border-border">
           <h3 className="text-sm font-bold text-foreground uppercase tracking-wider" data-testid="text-discard-label">
             <GameTooltip term="discard">Discarded Tiles</GameTooltip>
@@ -598,13 +633,56 @@ export function MultiplayerBoard({
                   transition={{ duration: 0.2 }}
                   data-testid={`discard-tile-${i}`}
                 >
-                  <Tile tile={tile} size="sm" />
+                  <Tile tile={tile} size={discardTileSize} />
                 </motion.div>
               ))}
             </div>
           )}
         </div>
       </aside>
+
+      {showDiscardMobile && (
+        <div className="fixed inset-0 z-40 md:hidden" data-testid="discard-pile-mobile">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowDiscardMobile(false)} />
+          <div className="absolute bottom-0 left-0 right-0 bg-card border-t border-border rounded-t-lg max-h-[60vh] flex flex-col">
+            <div className="flex items-center justify-between p-3 border-b border-border">
+              <div>
+                <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">
+                  Discarded Tiles
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  {gameState.discardPile.length} tile{gameState.discardPile.length !== 1 ? "s" : ""}
+                  {gameState.lastDiscardedBy && gameState.lastDiscard && (
+                    <span className="ml-1">(last by {gameState.lastDiscardedBy})</span>
+                  )}
+                </p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setShowDiscardMobile(false)} data-testid="button-close-discards">
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3">
+              {gameState.discardPile.length === 0 ? (
+                <p className="text-sm italic text-muted-foreground/50 text-center py-4">No discards yet</p>
+              ) : (
+                <div className="flex flex-wrap gap-1.5 content-start">
+                  {gameState.discardPile.map((tile, i) => (
+                    <motion.div
+                      key={tile.id}
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.2 }}
+                      data-testid={`discard-tile-mobile-${i}`}
+                    >
+                      <Tile tile={tile} size="xs" />
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

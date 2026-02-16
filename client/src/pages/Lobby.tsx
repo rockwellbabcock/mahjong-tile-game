@@ -59,10 +59,10 @@ export default function LobbyPage({ game }: LobbyPageProps) {
       : SEAT_ORDER;
 
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-background p-4">
-        <Card className="w-full max-w-md p-6">
-          <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-foreground mb-2" data-testid="text-waiting-title">
+      <div className="flex flex-col items-center justify-center min-h-[100dvh] bg-background p-3 sm:p-4">
+        <Card className="w-full max-w-md p-4 sm:p-6">
+          <div className="text-center mb-4 sm:mb-6">
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-2" data-testid="text-waiting-title">
               {isSiamese ? "Waiting for Opponent" : "Waiting for Players"}
             </h1>
             <p className="text-sm text-muted-foreground">
@@ -73,9 +73,9 @@ export default function LobbyPage({ game }: LobbyPageProps) {
             </p>
           </div>
 
-          <div className="flex items-center justify-center gap-3 mb-6">
+          <div className="flex items-center justify-center gap-3 mb-4 sm:mb-6">
             <div
-              className="text-4xl font-mono font-bold tracking-[0.3em] text-foreground bg-muted px-6 py-3 rounded-md select-all"
+              className="text-2xl sm:text-4xl font-mono font-bold tracking-[0.3em] text-foreground bg-muted px-4 sm:px-6 py-2 sm:py-3 rounded-md select-all"
               data-testid="text-room-code"
             >
               {roomCode}
@@ -172,8 +172,8 @@ export default function LobbyPage({ game }: LobbyPageProps) {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-background p-4">
-      <div className="w-full max-w-md space-y-6">
+    <div className="flex flex-col items-center justify-center min-h-[100dvh] bg-background p-3 sm:p-4">
+      <div className="w-full max-w-md space-y-4 sm:space-y-6">
         <div className="text-center relative">
           <div className="absolute right-0 top-0">
             <Button
@@ -187,15 +187,15 @@ export default function LobbyPage({ game }: LobbyPageProps) {
               {theme === "jade" ? "Jade" : "Felt"}
             </Button>
           </div>
-          <h1 className="text-3xl font-bold text-foreground mb-1" data-testid="text-lobby-title">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-1" data-testid="text-lobby-title">
             Mahjong
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-sm sm:text-base text-muted-foreground">
             Play American Mahjong online
           </p>
         </div>
 
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">

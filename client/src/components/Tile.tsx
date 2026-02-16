@@ -8,7 +8,7 @@ interface TileProps {
   onClick?: () => void;
   isInteractive?: boolean;
   isRecent?: boolean;
-  size?: "sm" | "md" | "lg";
+  size?: "xs" | "sm" | "md" | "lg";
   dimmed?: boolean;
 }
 
@@ -99,7 +99,7 @@ const dragonDisplay: Record<string, { symbol: string; color: string }> = {
   White: { symbol: "\uD83D\uDC09", color: "text-slate-500" },
 };
 
-function renderClassic(tile: TileType, size: "sm" | "md" | "lg") {
+function renderClassic(tile: TileType, size: "xs" | "sm" | "md" | "lg") {
   let displayValue: string | number | null = tile.value;
   let icon = classicSuitIcons[tile.suit] || "";
   let colorKey: string = tile.suit;
@@ -128,6 +128,7 @@ function renderClassic(tile: TileType, size: "sm" | "md" | "lg") {
   }
 
   const sizeClasses = {
+    xs: "w-9 h-12 text-[8px]",
     sm: "w-12 h-16 text-[10px]",
     md: "w-14 h-[72px] text-xs",
     lg: "w-16 h-20 text-sm",
@@ -186,7 +187,7 @@ function renderClassic(tile: TileType, size: "sm" | "md" | "lg") {
   };
 }
 
-function renderEmoji(tile: TileType, size: "sm" | "md" | "lg") {
+function renderEmoji(tile: TileType, size: "xs" | "sm" | "md" | "lg") {
   let topContent: string | null = null;
   let mainContent = "";
   let bottomLabel = "";
@@ -226,6 +227,7 @@ function renderEmoji(tile: TileType, size: "sm" | "md" | "lg") {
   }
 
   const sizeClasses = {
+    xs: "w-9 h-12 text-[8px]",
     sm: "w-12 h-16 text-[10px]",
     md: "w-14 h-[72px] text-xs",
     lg: "w-16 h-20 text-sm",
@@ -244,7 +246,7 @@ function renderEmoji(tile: TileType, size: "sm" | "md" | "lg") {
   };
 }
 
-function renderText(tile: TileType, size: "sm" | "md" | "lg") {
+function renderText(tile: TileType, size: "xs" | "sm" | "md" | "lg") {
   let label = "";
   let colorKey: string = tile.suit;
 
@@ -268,6 +270,7 @@ function renderText(tile: TileType, size: "sm" | "md" | "lg") {
   else label = `${tile.suit} ${tile.value}`;
 
   const sizeClasses = {
+    xs: "w-9 h-12 text-[8px]",
     sm: "w-12 h-16 text-[10px]",
     md: "w-14 h-[72px] text-xs",
     lg: "w-16 h-20 text-sm",
@@ -315,8 +318,8 @@ export function Tile({ tile, onClick, isInteractive = false, isRecent = false, s
 
 export function TileBack({ count }: { count: number }) {
   return (
-    <div className="relative w-12 h-16 bg-primary/20 rounded-md flex items-center justify-center border-2 border-primary/30" data-testid="tile-back-wall">
-      <span className="font-mono font-bold text-primary text-lg">{count}</span>
+    <div className="relative w-10 h-14 sm:w-12 sm:h-16 bg-primary/20 rounded-md flex items-center justify-center border-2 border-primary/30" data-testid="tile-back-wall">
+      <span className="font-mono font-bold text-primary text-base sm:text-lg">{count}</span>
     </div>
   );
 }
