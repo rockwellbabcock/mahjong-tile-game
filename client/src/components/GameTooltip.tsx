@@ -1,70 +1,102 @@
 import { useState } from "react";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Info } from "lucide-react";
+import { Info, ExternalLink } from "lucide-react";
 
 interface TermDefinition {
-  short: string;
-  detail: string;
-  learnMore?: string;
+  definition: string;
+  learnMoreUrl: string;
+  learnMoreLabel: string;
 }
 
 const GAME_TERMS: Record<string, TermDefinition> = {
   wall: {
-    short: "The face-down tiles you draw from each turn.",
-    detail: "The wall is the stack of remaining tiles. Each turn, you draw one tile from the wall. When the wall is empty, the game ends in a draw if nobody has won yet.",
+    definition: "The face-down stack of tiles you draw from each turn. When it's empty, the game ends.",
+    learnMoreUrl: "https://www.mahjonggcentral.com/basics",
+    learnMoreLabel: "Mahjong Basics",
   },
   discard: {
-    short: "Remove an unwanted tile from your hand.",
-    detail: "After drawing a tile, you must discard one tile to get back to 13. Choose wisely \u2014 discard tiles that don't fit any winning pattern. Other players can see your discards.",
+    definition: "A tile you remove from your hand each turn. Pick tiles that don't fit your winning pattern.",
+    learnMoreUrl: "https://www.mahjonggcentral.com/basics",
+    learnMoreLabel: "How Discarding Works",
   },
   hand: {
-    short: "The tiles you're holding (13-14 tiles).",
-    detail: "You start with 13 tiles. Each turn you draw a 14th tile, then discard one back down to 13. Your goal is to arrange 14 tiles into a winning pattern.",
+    definition: "The tiles you're holding. You keep 13 tiles and draw a 14th each turn, then discard one.",
+    learnMoreUrl: "https://www.mahjonggcentral.com/basics",
+    learnMoreLabel: "Hand Management",
   },
   mahjong: {
-    short: "A winning hand \u2014 you've matched a pattern!",
-    detail: "When your 14 tiles match one of the valid winning patterns, you declare Mahjong and win the game. Patterns include runs, pairs, triples, and special combinations.",
+    definition: "A winning hand! When your 14 tiles match a valid pattern, you declare Mahjong and win.",
+    learnMoreUrl: "https://www.mahjonggcentral.com/basics",
+    learnMoreLabel: "What is Mahjong?",
   },
   pair: {
-    short: "Two identical tiles.",
-    detail: "A pair is two tiles with the same suit and value. For example, two Bam 3 tiles. Many winning patterns require one or more pairs.",
+    definition: "Two identical tiles with the same suit and value. Many winning patterns need pairs.",
+    learnMoreUrl: "https://www.mahjonggcentral.com/basics",
+    learnMoreLabel: "Tile Combinations",
   },
   triple: {
-    short: "Three identical tiles (also called a pung).",
-    detail: "A triple, or pung, is three tiles with the same suit and value. Triples are key building blocks in many winning patterns.",
+    definition: "Three identical tiles, also called a pung. A key building block in winning patterns.",
+    learnMoreUrl: "https://www.mahjonggcentral.com/basics",
+    learnMoreLabel: "Tile Combinations",
   },
   joker: {
-    short: "A wild tile that substitutes for any tile.",
-    detail: "American Mahjong uses 8 Joker tiles. A Joker can stand in for any tile you're missing to complete a pattern. They're very valuable!",
+    definition: "Wild tile that can substitute for any other tile. American Mahjong uses 8 of them.",
+    learnMoreUrl: "https://www.mahjonggcentral.com/jokers",
+    learnMoreLabel: "Joker Rules",
   },
   flower: {
-    short: "A bonus tile used in certain patterns.",
-    detail: "There are 8 Flower tiles in American Mahjong. They don't belong to any numbered suit but are required by certain winning patterns.",
+    definition: "Special bonus tile used in certain winning patterns. There are 8 in the set.",
+    learnMoreUrl: "https://www.mahjonggcentral.com/basics",
+    learnMoreLabel: "About Flowers",
   },
   suit: {
-    short: "The type of tile (Bam, Crak, or Dot).",
-    detail: "There are three main suits: Bam (bamboo), Crak (characters), and Dot (circles). Each suit has tiles numbered 1 through 9, with four copies of each.",
+    definition: "The category of a tile. The three main suits are Bam (bamboo), Crak (characters), and Dot (circles).",
+    learnMoreUrl: "https://www.mahjonggcentral.com/tiles",
+    learnMoreLabel: "Tile Types",
   },
   charleston: {
-    short: "Pre-game tile exchange between players.",
-    detail: "The Charleston is a tile-passing ceremony before play begins. Players pass unwanted tiles to other players, giving everyone a chance to improve their starting hand.",
+    definition: "Pass unwanted tiles to other players before the game starts. Helps everyone build better hands.",
+    learnMoreUrl: "https://www.mahjonggcentral.com/charleston",
+    learnMoreLabel: "Charleston Rules",
+  },
+  exposure: {
+    definition: "Tiles you've revealed to claim from the discard pile. Once exposed, they stay face-up.",
+    learnMoreUrl: "https://www.mahjonggcentral.com/exposures",
+    learnMoreLabel: "Exposure Rules",
   },
   draw: {
-    short: "Take one tile from the wall.",
-    detail: "Drawing means taking the next tile from the wall and adding it to your hand. This happens automatically at the start of each turn, bringing your hand to 14 tiles.",
+    definition: "Taking the next tile from the wall to add to your hand. Happens at the start of each turn.",
+    learnMoreUrl: "https://www.mahjonggcentral.com/basics",
+    learnMoreLabel: "Game Flow",
   },
   pattern: {
-    short: "A specific tile arrangement that wins.",
-    detail: "Winning patterns define which combinations of tiles make a valid Mahjong hand. Patterns include consecutive runs, matching pairs, triples, and special combinations using winds, dragons, and flowers.",
+    definition: "A specific arrangement of tiles that makes a winning hand. Check the Hint panel to see which you're closest to.",
+    learnMoreUrl: "https://www.mahjonggcentral.com/hands",
+    learnMoreLabel: "Winning Patterns",
+  },
+  wind: {
+    definition: "Special honor tiles representing North, South, East, and West. Used in certain winning patterns.",
+    learnMoreUrl: "https://www.mahjonggcentral.com/tiles",
+    learnMoreLabel: "Honor Tiles",
+  },
+  dragon: {
+    definition: "Honor tiles in three colors: Red, Green, and White. Key to several winning patterns.",
+    learnMoreUrl: "https://www.mahjonggcentral.com/tiles",
+    learnMoreLabel: "Honor Tiles",
+  },
+  pung: {
+    definition: "Three identical tiles. You can claim a discarded tile to complete a pung if you expose it.",
+    learnMoreUrl: "https://www.mahjonggcentral.com/basics",
+    learnMoreLabel: "Tile Combinations",
+  },
+  kong: {
+    definition: "Four identical tiles. A powerful set that's hard to collect but scores well.",
+    learnMoreUrl: "https://www.mahjonggcentral.com/basics",
+    learnMoreLabel: "Tile Combinations",
   },
 };
 
@@ -80,33 +112,31 @@ export function GameTooltip({ term, children }: GameTooltipProps) {
   const [open, setOpen] = useState(false);
 
   return (
-    <span className="inline-flex items-center gap-0.5">
-      <Tooltip delayDuration={200}>
-        <TooltipTrigger asChild>
-          <span className="border-b border-dashed border-muted-foreground/40 cursor-help">
-            {children}
-          </span>
-        </TooltipTrigger>
-        <TooltipContent side="top" className="max-w-[220px] text-xs leading-relaxed">
-          <p className="font-semibold mb-0.5 capitalize">{term}</p>
-          <p>{definition.short}</p>
-        </TooltipContent>
-      </Tooltip>
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <button
-            className="inline-flex items-center justify-center cursor-pointer text-muted-foreground/50 hover:text-muted-foreground transition-colors"
-            data-testid={`info-${term.toLowerCase()}`}
-            aria-label={`Learn more about ${term}`}
-          >
-            <Info className="w-3 h-3" />
-          </button>
-        </PopoverTrigger>
-        <PopoverContent side="top" align="start" className="w-72 p-3" data-testid={`popover-${term.toLowerCase()}`}>
-          <p className="font-semibold text-sm capitalize mb-1">{term}</p>
-          <p className="text-xs text-muted-foreground leading-relaxed">{definition.detail}</p>
-        </PopoverContent>
-      </Popover>
-    </span>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          className="inline-flex items-center gap-0.5 border-b border-dashed border-muted-foreground/40 cursor-pointer hover:border-muted-foreground transition-colors"
+          data-testid={`info-${term.toLowerCase()}`}
+          aria-label={`Learn about ${term}`}
+        >
+          {children}
+          <Info className="w-3 h-3 text-muted-foreground/50" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent side="top" align="start" className="w-64 p-3" data-testid={`popover-${term.toLowerCase()}`}>
+        <p className="font-semibold text-sm capitalize mb-1.5">{term}</p>
+        <p className="text-xs text-muted-foreground leading-relaxed mb-2">{definition.definition}</p>
+        <a
+          href={definition.learnMoreUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-xs text-primary hover:underline font-medium"
+          data-testid={`link-learn-more-${term.toLowerCase()}`}
+        >
+          {definition.learnMoreLabel}
+          <ExternalLink className="w-3 h-3" />
+        </a>
+      </PopoverContent>
+    </Popover>
   );
 }
