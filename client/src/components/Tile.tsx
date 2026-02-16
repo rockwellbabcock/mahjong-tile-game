@@ -132,12 +132,14 @@ function renderClassic(tile: TileType, size: "sm" | "md" | "lg") {
     lg: "w-14 h-20 text-base",
   };
 
-  const showLabel = tile.suit !== "Joker";
   let labelContent: string | null = null;
+  let sublabel: string | null = null;
   if (tile.suit === "Flower") {
     labelContent = String(tile.value);
   } else if (tile.suit === "Dragon") {
-    labelContent = String(displayValue);
+    const assoc = dragonSuitMap[String(tile.value)];
+    labelContent = `${tile.value} Drgn`;
+    sublabel = assoc ? `(${assoc})` : null;
   } else if (tile.suit === "Wind") {
     labelContent = String(displayValue);
   } else if (tile.suit !== "Joker") {
@@ -163,13 +165,18 @@ function renderClassic(tile: TileType, size: "sm" | "md" | "lg") {
             {cornerValue}
           </span>
         )}
-        <div className="flex flex-col items-center gap-0.5">
+        <div className="flex flex-col items-center gap-0">
           <span className="text-xl sm:text-2xl leading-none filter drop-shadow-sm">
             {icon}
           </span>
-          {showLabel && labelContent && (
+          {labelContent && (
             <span className="font-bold text-[0.55rem] sm:text-xs leading-none truncate max-w-full px-0.5">
               {labelContent}
+            </span>
+          )}
+          {sublabel && (
+            <span className="text-[0.45rem] sm:text-[0.55rem] leading-none opacity-60 font-medium">
+              {sublabel}
             </span>
           )}
         </div>
@@ -206,9 +213,10 @@ function renderEmoji(tile: TileType, size: "sm" | "md" | "lg") {
   } else if (tile.suit === "Dragon") {
     const name = String(tile.value);
     const info = dragonDisplay[name];
+    const assoc = dragonSuitMap[name];
     mainContent = info?.symbol || name;
     extraClass = info?.color || "";
-    bottomLabel = `${name} Drgn`;
+    bottomLabel = assoc ? `${name} Drgn (${assoc})` : `${name} Drgn`;
   } else {
     const num = tile.value as number;
     topContent = suitSymbols[tile.suit] || "";
@@ -253,7 +261,8 @@ function renderText(tile: TileType, size: "sm" | "md" | "lg") {
   else if (tile.suit === "Wind") label = String(tile.value);
   else if (tile.suit === "Dragon") {
     const name = String(tile.value);
-    label = `${name} Dragon`;
+    const assoc = dragonSuitMap[name];
+    label = assoc ? `${name} Dragon (${assoc})` : `${name} Dragon`;
   }
   else label = `${tile.suit} ${tile.value}`;
 
