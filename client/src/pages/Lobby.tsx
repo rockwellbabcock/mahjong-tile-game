@@ -48,19 +48,26 @@ export default function LobbyPage({ game }: LobbyPageProps) {
     return null;
   }
 
-  const requiredPlayers = gameMode === "2-player" ? 2 : (fillWithBots ? 1 : 4);
-  const maxHumans = gameMode === "2-player" ? 2 : 4;
+  const isSiamese = gameMode === "2-player";
+  const maxHumans = isSiamese ? (fillWithBots ? 1 : 2) : 4;
 
   if (lobbyState === "waiting" && roomCode) {
+    const lobbySeats = isSiamese
+      ? (["East", "South"] as PlayerSeat[])
+      : SEAT_ORDER;
+
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background p-4">
         <Card className="w-full max-w-md p-6">
           <div className="text-center mb-6">
             <h1 className="text-2xl font-bold text-foreground mb-2" data-testid="text-waiting-title">
-              Waiting for Players
+              {isSiamese ? "Waiting for Opponent" : "Waiting for Players"}
             </h1>
             <p className="text-sm text-muted-foreground">
-              Share this room code with friends to join
+              {fillWithBots && isSiamese
+                ? "Starting game with bot opponent..."
+                : "Share this room code with friends to join"
+              }
             </p>
           </div>
 
@@ -85,16 +92,19 @@ export default function LobbyPage({ game }: LobbyPageProps) {
             <div className="flex items-center gap-2 mb-3">
               <Users className="w-4 h-4 text-muted-foreground" />
               <span className="text-sm font-medium text-foreground" data-testid="text-player-count">
-                {playerCount} / {maxHumans} Players
+                {Math.min(playerCount, maxHumans)} / {maxHumans} {isSiamese ? "Players (2 hands each)" : "Players"}
               </span>
               {fillWithBots && (
-                <span className="text-xs text-muted-foreground">(bots will fill remaining)</span>
+                <span className="text-xs text-muted-foreground">
+                  {isSiamese ? "(bot opponent)" : "(bots will fill remaining)"}
+                </span>
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              {SEAT_ORDER.map((seat) => {
+            <div className={`grid gap-2 ${lobbySeats.length <= 2 ? "grid-cols-2" : "grid-cols-2"}`}>
+              {lobbySeats.map((seat, idx) => {
                 const player = gameState?.players.find(p => p.seat === seat);
+                const label = isSiamese ? (idx === 0 ? "Player 1" : "Player 2") : seat;
                 return (
                   <div
                     key={seat}
@@ -115,7 +125,7 @@ export default function LobbyPage({ game }: LobbyPageProps) {
                       }`}
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-muted-foreground uppercase">{seat}</p>
+                      <p className="text-xs font-bold text-muted-foreground uppercase">{label}</p>
                       <div className="flex items-center gap-1">
                         {player?.isBot && <Bot className="w-3 h-3 text-blue-500 shrink-0" />}
                         <p className="text-sm font-medium text-foreground truncate">
@@ -127,14 +137,24 @@ export default function LobbyPage({ game }: LobbyPageProps) {
                 );
               })}
             </div>
+
+            {isSiamese && (
+              <p className="text-xs text-muted-foreground mt-2 text-center">
+                Each player controls 2 hands - both must win to claim victory
+              </p>
+            )}
           </div>
 
           <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="w-4 h-4 animate-spin" />
             <span data-testid="text-waiting-message">
-              {fillWithBots
-                ? `Game starts when ${maxHumans === 2 ? "2 players" : "you"} join${maxHumans > 1 ? "" : ""} - bots fill remaining spots`
-                : `Game starts when ${maxHumans} players join`
+              {isSiamese
+                ? fillWithBots
+                  ? "Starting with bot opponent..."
+                  : "Waiting for 1 more player to join"
+                : fillWithBots
+                  ? "Game starts when you join - bots fill remaining spots"
+                  : `Game starts when ${maxHumans} players join`
               }
             </span>
           </div>

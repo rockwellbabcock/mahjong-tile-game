@@ -84,6 +84,7 @@ export interface ClientRoomView {
     exposures: Tile[][];
     connected: boolean;
     isBot?: boolean;
+    controlledBy?: string | null;
   }[];
   myHand: Tile[];
   mySeat: PlayerSeat;

@@ -128,6 +128,13 @@ export function MultiplayerBoard({
       return `${prefix} - pick a tile from your hand to discard it.`;
     }
     const currentPlayer = gameState.players.find(p => p.seat === gameState.currentTurn);
+    if (gameState.gameMode === "2-player" && currentPlayer) {
+      const controller = currentPlayer.controlledBy
+        ? gameState.players.find(p => p.id === currentPlayer.controlledBy)
+        : currentPlayer;
+      const opponentName = controller?.name || currentPlayer.name;
+      return `Waiting for ${opponentName} to ${gameState.phase === "draw" ? "draw" : "discard"} (${gameState.currentTurn})...`;
+    }
     const nameLabel = currentPlayer?.isBot ? `${currentPlayer.name}` : (currentPlayer?.name || gameState.currentTurn);
     return `Waiting for ${nameLabel} to ${gameState.phase === "draw" ? "draw" : "discard"}...`;
   }
@@ -137,6 +144,15 @@ export function MultiplayerBoard({
     if (gameState.gameMode === "2-player" && gameState.mySeats.includes(p.seat)) return false;
     return true;
   });
+
+  const isSiamese = gameState.gameMode === "2-player";
+
+  const opponentInfo = isSiamese ? (() => {
+    const opponentSeats = otherPlayers;
+    const mainOpponent = opponentSeats.find(p => !p.controlledBy) || opponentSeats[0];
+    const partnerOpponent = opponentSeats.find(p => p.controlledBy === mainOpponent?.id);
+    return mainOpponent ? { main: mainOpponent, partner: partnerOpponent } : null;
+  })() : null;
 
   return (
     <div className="flex h-[100dvh] w-full" data-testid="game-board">
@@ -273,6 +289,64 @@ export function MultiplayerBoard({
 
         <div className="flex-1 flex flex-col items-center justify-between p-4 gap-3 overflow-y-auto">
           <div className="w-full max-w-3xl">
+            {isSiamese && opponentInfo ? (
+              <div className="mb-3">
+                <div
+                  className={`p-3 rounded-md border ${
+                    otherPlayers.some(p => p.seat === gameState.currentTurn)
+                      ? "border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950/30"
+                      : "border-border bg-card"
+                  }`}
+                  data-testid="player-card-opponent"
+                >
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <div className={`w-2 h-2 rounded-full ${opponentInfo.main.connected ? (opponentInfo.main.isBot ? "bg-blue-500" : "bg-emerald-500") : "bg-red-500"}`} />
+                        <span className="text-sm font-bold text-foreground">Opponent</span>
+                        {opponentInfo.main.isBot && <Bot className="w-3 h-3 text-blue-500 shrink-0" data-testid="bot-icon-opponent" />}
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">{opponentInfo.main.name}</p>
+                    </div>
+                    {otherPlayers.some(p => p.seat === gameState.currentTurn) && (
+                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase shrink-0">
+                        Their Turn
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className={`p-2 rounded-md border ${
+                      opponentInfo.main.seat === gameState.currentTurn
+                        ? "border-emerald-300 bg-emerald-100/50 dark:border-emerald-700 dark:bg-emerald-950/20"
+                        : "border-border bg-background/50"
+                    }`}>
+                      <div className="flex items-center justify-between gap-1 flex-wrap">
+                        <span className="text-xs font-bold text-muted-foreground uppercase">{opponentInfo.main.seat} - Hand 1</span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Hand className="w-3 h-3 text-muted-foreground" />
+                          <span className="text-xs font-mono text-muted-foreground">{opponentInfo.main.handCount}</span>
+                        </div>
+                      </div>
+                    </div>
+                    {opponentInfo.partner && (
+                      <div className={`p-2 rounded-md border ${
+                        opponentInfo.partner.seat === gameState.currentTurn
+                          ? "border-emerald-300 bg-emerald-100/50 dark:border-emerald-700 dark:bg-emerald-950/20"
+                          : "border-border bg-background/50"
+                      }`}>
+                        <div className="flex items-center justify-between gap-1 flex-wrap">
+                          <span className="text-xs font-bold text-muted-foreground uppercase">{opponentInfo.partner.seat} - Hand 2</span>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Hand className="w-3 h-3 text-muted-foreground" />
+                            <span className="text-xs font-mono text-muted-foreground">{opponentInfo.partner.handCount}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
             <div className={`grid gap-2 mb-3 ${otherPlayers.length <= 2 ? "grid-cols-2" : "grid-cols-3"}`}>
               {otherPlayers.map((player) => {
                 const isCurrentTurn = player.seat === gameState.currentTurn;
@@ -314,6 +388,7 @@ export function MultiplayerBoard({
                 );
               })}
             </div>
+            )}
 
             <AnimatePresence>
               {showHints && hints && (
@@ -348,14 +423,15 @@ export function MultiplayerBoard({
         <footer className="border-t border-border p-4" data-testid="player-hand-area">
           <div className="flex items-center justify-center gap-2 mb-3">
             <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider text-center" data-testid="text-hand-label">
-              {isPlayingPartner ? (
-                <>Partner's <GameTooltip term="hand">Hand</GameTooltip> ({displayHand.length} tiles)</>
+              {isSiamese ? (
+                isPlayingPartner ? (
+                  <>Your Hand 2 ({displayHand.length} tiles) - {displaySeat}</>
+                ) : (
+                  <>Your Hand 1 ({displayHand.length} tiles) - {displaySeat}</>
+                )
               ) : (
-                <>Your <GameTooltip term="hand">Hand</GameTooltip> ({displayHand.length} tiles)</>
+                <>Your <GameTooltip term="hand">Hand</GameTooltip> ({displayHand.length} tiles) - {displaySeat}</>
               )}
-              <span className="ml-2 text-xs font-bold text-muted-foreground">
-                - {displaySeat}
-              </span>
             </h3>
             {isMyTurn && gameState.phase === "discard" && (
               <span className="text-xs font-bold text-orange-600 dark:text-orange-400 animate-pulse">
@@ -389,10 +465,10 @@ export function MultiplayerBoard({
             </div>
           </div>
 
-          {gameState.gameMode === "2-player" && gameState.partnerHand && !isPlayingPartner && (
+          {isSiamese && gameState.partnerHand && !isPlayingPartner && (
             <div className="mt-3">
               <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider text-center mb-2" data-testid="text-partner-hand-label">
-                Partner's Hand ({gameState.partnerHand.length} tiles) - {gameState.mySeats.find(s => s !== gameState.mySeat)}
+                Your Hand 2 ({gameState.partnerHand.length} tiles) - {gameState.mySeats.find(s => s !== gameState.mySeat)}
               </h3>
               <div className="flex items-center justify-center gap-1 p-2 bg-card/50 rounded-md border border-dashed border-border" data-testid="hand-partner">
                 {gameState.partnerHand.map((tile) => (

@@ -294,6 +294,7 @@ export function reconnectPlayer(roomCode: string, playerName: string, rejoinToke
   const player = room.state.players.find(p => p.name === playerName && !p.connected && p.rejoinToken === rejoinToken);
   if (!player) return null;
 
+  const oldId = player.id;
   player.id = newSocketId;
   player.connected = true;
 
@@ -305,11 +306,10 @@ export function reconnectPlayer(roomCode: string, playerName: string, rejoinToke
 
   if (room.state.config.gameMode === "2-player") {
     for (const p of room.state.players) {
-      if (p.controlledBy === playerName) {
+      if (p.controlledBy === oldId) {
         p.controlledBy = newSocketId;
       }
     }
-    setupTwoPlayerPartner(roomCode, newSocketId);
   }
 
   return player;
@@ -386,6 +386,9 @@ export function isReadyToStart(roomCode: string): boolean {
 
   if (room.state.config.gameMode === "2-player") {
     const humans = room.state.players.filter(p => !p.isBot);
+    if (room.state.config.fillWithBots) {
+      return humans.length >= 1;
+    }
     return humans.length === 2;
   }
   return room.state.players.length === 4;
@@ -397,21 +400,96 @@ export function fillBotsAndStart(roomCode: string): boolean {
   if (room.state.started) return false;
   if (!room.state.config.fillWithBots) return false;
 
-  addBotsToRoom(roomCode);
-
   if (room.state.config.gameMode === "2-player") {
-    for (const p of room.state.players) {
-      if (!p.isBot) continue;
-      const pIdx = SEAT_ORDER.indexOf(p.seat);
-      const acrossSeat = SEAT_ORDER[(pIdx + 2) % 4];
-      const acrossPlayer = room.state.players.find(pp => pp.seat === acrossSeat && !pp.isBot);
-      if (acrossPlayer) {
-        p.controlledBy = acrossPlayer.id;
-      }
-    }
+    fillBotsForSiamese(roomCode);
+  } else {
+    addBotsToRoom(roomCode);
   }
 
   return room.state.players.length === 4;
+}
+
+function fillBotsForSiamese(roomCode: string): void {
+  const room = rooms.get(roomCode);
+  if (!room) return;
+
+  const humans = room.state.players.filter(p => !p.isBot);
+  const takenSeats = new Set(room.state.players.map(p => p.seat));
+
+  if (humans.length === 1) {
+    const human = humans[0];
+    const humanIdx = SEAT_ORDER.indexOf(human.seat);
+    const humanPartnerSeat = SEAT_ORDER[(humanIdx + 2) % 4];
+
+    const botMainSeat = SEAT_ORDER.find(s => !takenSeats.has(s) && s !== humanPartnerSeat)
+      || SEAT_ORDER.find(s => !takenSeats.has(s));
+    if (!botMainSeat) return;
+
+    const botId = generateBotId();
+    const bot: PlayerState = {
+      id: botId,
+      name: BOT_NAMES[0],
+      seat: botMainSeat,
+      hand: [],
+      exposures: [],
+      connected: true,
+      isBot: true,
+    };
+    room.state.players.push(bot);
+    takenSeats.add(botMainSeat);
+
+    const botIdx = SEAT_ORDER.indexOf(botMainSeat);
+    const botPartnerSeat = SEAT_ORDER[(botIdx + 2) % 4];
+
+    if (!takenSeats.has(humanPartnerSeat)) {
+      const humanPartner: PlayerState = {
+        id: generateBotId(),
+        name: `${human.name}'s Hand 2`,
+        seat: humanPartnerSeat,
+        hand: [],
+        exposures: [],
+        connected: true,
+        isBot: true,
+        controlledBy: human.id,
+      };
+      room.state.players.push(humanPartner);
+      takenSeats.add(humanPartnerSeat);
+    }
+
+    if (!takenSeats.has(botPartnerSeat)) {
+      const botPartner: PlayerState = {
+        id: generateBotId(),
+        name: `${BOT_NAMES[0]}'s Hand 2`,
+        seat: botPartnerSeat,
+        hand: [],
+        exposures: [],
+        connected: true,
+        isBot: true,
+        controlledBy: botId,
+      };
+      room.state.players.push(botPartner);
+      takenSeats.add(botPartnerSeat);
+    }
+  } else if (humans.length === 2) {
+    for (const human of humans) {
+      const humanIdx = SEAT_ORDER.indexOf(human.seat);
+      const partnerSeat = SEAT_ORDER[(humanIdx + 2) % 4];
+      if (!takenSeats.has(partnerSeat)) {
+        const partner: PlayerState = {
+          id: generateBotId(),
+          name: `${human.name}'s Hand 2`,
+          seat: partnerSeat,
+          hand: [],
+          exposures: [],
+          connected: true,
+          isBot: true,
+          controlledBy: human.id,
+        };
+        room.state.players.push(partner);
+        takenSeats.add(partnerSeat);
+      }
+    }
+  }
 }
 
 export function startGame(roomCode: string): boolean {
@@ -559,6 +637,7 @@ export function getClientView(room: GameRoom, playerId: string): ClientRoomView 
       exposures: p.exposures,
       connected: p.connected,
       isBot: p.isBot,
+      controlledBy: p.controlledBy || null,
     })),
     myHand: player.hand,
     mySeat: player.seat,
@@ -589,13 +668,36 @@ export function checkWinForPlayer(roomCode: string, playerId: string, forSeat?: 
   if (player.hand.length !== 14) return { won: false };
 
   const result = checkForWin(player.hand);
-  if (result) {
-    room.state.phase = "won";
-    room.state.winnerId = player.id;
-    room.state.winnerSeat = player.seat;
-    return { won: true, patternName: result.patternName, description: result.description };
+  if (!result) return { won: false };
+
+  if (room.state.config.gameMode === "2-player") {
+    const controllerId = player.controlledBy || player.id;
+    const allSeats = room.state.players.filter(p =>
+      p.id === controllerId || p.controlledBy === controllerId
+    );
+
+    const otherSeat = allSeats.find(p => p.seat !== player.seat);
+    if (otherSeat) {
+      if (otherSeat.hand.length !== 14) return { won: false };
+      const otherResult = checkForWin(otherSeat.hand);
+      if (!otherResult) return { won: false };
+
+      room.state.phase = "won";
+      const mainPlayer = room.state.players.find(p => p.id === controllerId);
+      room.state.winnerId = controllerId;
+      room.state.winnerSeat = mainPlayer?.seat || player.seat;
+      return {
+        won: true,
+        patternName: `${result.patternName} + ${otherResult.patternName}`,
+        description: `Both hands won! Hand 1: ${result.description}. Hand 2: ${otherResult.description}`,
+      };
+    }
   }
-  return { won: false };
+
+  room.state.phase = "won";
+  room.state.winnerId = player.id;
+  room.state.winnerSeat = player.seat;
+  return { won: true, patternName: result.patternName, description: result.description };
 }
 
 export function resetGame(roomCode: string): boolean {
@@ -632,7 +734,15 @@ export function isCurrentTurnBot(roomCode: string): boolean {
   const currentPlayer = room.state.players.find(p => p.seat === room.state.currentTurn);
   if (!currentPlayer) return false;
 
-  return !!currentPlayer.isBot && !currentPlayer.controlledBy;
+  if (!currentPlayer.isBot) return false;
+
+  if (currentPlayer.controlledBy) {
+    const controller = room.state.players.find(p => p.id === currentPlayer.controlledBy);
+    if (controller && !controller.isBot) return false;
+    return true;
+  }
+
+  return true;
 }
 
 export function isCurrentTurnControlledByHuman(roomCode: string): string | null {
@@ -755,18 +865,36 @@ export function checkBotWin(roomCode: string): { won: boolean; botName?: string;
   const room = rooms.get(roomCode);
   if (!room) return { won: false };
 
-  const currentPlayer = room.state.players.find(p => p.seat === room.state.currentTurn || (room.state.phase === "discard" && p.hand.length === 14 && p.isBot));
-  if (!currentPlayer) return { won: false };
-
-  const bots = room.state.players.filter(p => p.isBot && p.hand.length === 14);
+  const bots = room.state.players.filter(p => p.isBot && p.hand.length === 14 && !p.controlledBy);
   for (const bot of bots) {
     const result = checkForWin(bot.hand);
-    if (result) {
-      room.state.phase = "won";
-      room.state.winnerId = bot.id;
-      room.state.winnerSeat = bot.seat;
-      return { won: true, botName: bot.name, botSeat: bot.seat, patternName: result.patternName, description: result.description };
+    if (!result) continue;
+
+    if (room.state.config.gameMode === "2-player") {
+      const partnerSeats = room.state.players.filter(p => p.controlledBy === bot.id);
+      const partner = partnerSeats[0];
+      if (partner) {
+        if (partner.hand.length !== 14) continue;
+        const partnerResult = checkForWin(partner.hand);
+        if (!partnerResult) continue;
+
+        room.state.phase = "won";
+        room.state.winnerId = bot.id;
+        room.state.winnerSeat = bot.seat;
+        return {
+          won: true,
+          botName: bot.name,
+          botSeat: bot.seat,
+          patternName: `${result.patternName} + ${partnerResult.patternName}`,
+          description: `Both hands won! Hand 1: ${result.description}. Hand 2: ${partnerResult.description}`,
+        };
+      }
     }
+
+    room.state.phase = "won";
+    room.state.winnerId = bot.id;
+    room.state.winnerSeat = bot.seat;
+    return { won: true, botName: bot.name, botSeat: bot.seat, patternName: result.patternName, description: result.description };
   }
   return { won: false };
 }

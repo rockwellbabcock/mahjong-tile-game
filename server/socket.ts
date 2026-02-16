@@ -115,12 +115,12 @@ export function setupSocket(httpServer: HttpServer): Server<ClientToServerEvents
       log(`Room ${roomCode} created by ${playerName} (mode: ${room.state.config.gameMode}, bots: ${room.state.config.fillWithBots})`, "socket");
       socket.emit("room:created", { roomCode, seat: "East" });
 
-      if (room.state.config.fillWithBots && room.state.config.gameMode === "4-player") {
+      if (room.state.config.fillWithBots) {
         const filled = fillBotsAndStart(roomCode);
         if (filled) {
           const started = startGame(roomCode);
           if (started) {
-            log(`Game auto-started with bots in room ${roomCode}`, "socket");
+            log(`Game auto-started with bots in room ${roomCode} (mode: ${room.state.config.gameMode})`, "socket");
             io.to(roomCode).emit("game:started");
             broadcastState(io, roomCode);
             handleBotTurns(io, roomCode);
