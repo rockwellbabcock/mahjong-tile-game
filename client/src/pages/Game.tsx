@@ -63,6 +63,7 @@ export default function GamePage() {
     );
   }
 
+  const myPlayerId = gameState.players.find(p => p.seat === gameState.mySeat)?.id;
   const winResult = winInfo
     ? {
         patternId: "win",
@@ -76,11 +77,26 @@ export default function GamePage() {
         contributingTileIds: [],
         winnerName: winInfo.winnerName,
         winnerSeat: winInfo.winnerSeat,
-        isMe: winInfo.winnerId === gameState.players.find(p => p.seat === gameState.mySeat)?.id,
+        isMe: winInfo.winnerId === myPlayerId,
         rack1Pattern: winInfo.rack1Pattern,
         rack2Pattern: winInfo.rack2Pattern,
       }
-    : null;
+    : gameState.phase === "won" && gameState.winnerId
+      ? {
+          patternId: "win",
+          patternName: "Mahjong",
+          description: "",
+          isComplete: true,
+          tilesAway: 0,
+          matched: [],
+          missing: [],
+          hint: "",
+          contributingTileIds: [],
+          winnerName: gameState.players.find(p => p.id === gameState.winnerId)?.name || "Unknown",
+          winnerSeat: gameState.winnerSeat || undefined,
+          isMe: gameState.winnerId === myPlayerId,
+        }
+      : null;
 
   return (
     <ThemeContext.Provider value={themeValue}>
