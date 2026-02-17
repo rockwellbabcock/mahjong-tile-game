@@ -5,7 +5,7 @@ import { Tile, TileBack } from "./Tile";
 import { HintPanel } from "./HintPanel";
 import { GameTooltip } from "./GameTooltip";
 import { Button } from "@/components/ui/button";
-import { ArrowUpDown, Lightbulb, Palette, Copy, Check, Hand, WifiOff, Clock, X, Bot, Gem, Layers, FlaskConical, Repeat2, Flag, Loader2 } from "lucide-react";
+import { ArrowUpDown, Lightbulb, Palette, Copy, Check, Hand, WifiOff, Clock, X, Bot, Gem, Layers, FlaskConical, Flag, Loader2 } from "lucide-react";
 import { useTileStyle } from "@/hooks/use-tile-style";
 import { useTheme } from "@/hooks/use-theme";
 import { useMatTheme, MAT_COLORS, MAT_LABELS } from "@/hooks/use-mat-theme";
@@ -400,19 +400,12 @@ export function MultiplayerBoard({
           >
             <ArrowUpDown className="w-3 h-3" />
           </Button>
-          <Button variant="outline" size="sm" onClick={cycleTileStyle}
+          <Button variant="outline" size="sm" onClick={() => { cycleTileStyle(); cycleMatTheme(); }}
             className="h-7 px-2 text-xs bg-stone-800 border-stone-600 text-stone-300 hover:text-white"
             data-testid="button-tile-style"
-            title={`Tile Style: ${tileStyle}`}
+            title={`Style: ${tileStyle} / ${MAT_LABELS[matTheme]}`}
           >
             <Palette className="w-3 h-3" />
-          </Button>
-          <Button variant="outline" size="sm" onClick={cycleMatTheme}
-            className="h-7 px-2 text-xs bg-stone-800 border-stone-600 text-stone-300 hover:text-white"
-            data-testid="button-mat-theme"
-            title={MAT_LABELS[matTheme]}
-          >
-            <Layers className="w-3 h-3" />
           </Button>
           <Button
             variant="outline"
