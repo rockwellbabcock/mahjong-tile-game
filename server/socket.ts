@@ -44,6 +44,7 @@ import {
   botCallingDecision,
   swapJoker,
   zombieExchange,
+  challengeHand,
 } from "./game-engine";
 import { log } from "./index";
 
@@ -619,6 +620,41 @@ export function setupSocket(httpServer: HttpServer): Server<ClientToServerEvents
       log(`Game forfeited in room ${roomCode} by ${socket.id}`, "socket");
       io.to(roomCode).emit("game:ended", { reason: "A player forfeited the game." });
       endGame(roomCode);
+    });
+
+    socket.on("game:challenge", ({ targetSeat, rack }) => {
+      const roomCode = playerRooms.get(socket.id);
+      if (!roomCode) return;
+
+      const room = getRoom(roomCode);
+      if (!room || !room.state.started) return;
+
+      const result = challengeHand(roomCode, socket.id, targetSeat, rack);
+      if (!result.success) {
+        socket.emit("error", { message: result.error || "Challenge failed" });
+        return;
+      }
+
+      if (result.isDead) {
+        const target = room.state.players.find(p => p.seat === targetSeat);
+        io.to(roomCode).emit("game:dead-hand", {
+          seat: targetSeat,
+          playerName: target?.name || "Unknown",
+          reason: result.reason!,
+          rack: rack,
+          challengerName: result.challengerName || "Unknown",
+        });
+        log(`Dead hand declared for ${targetSeat} in room ${roomCode} (reason: ${result.reason}) by ${result.challengerName}`, "socket");
+      } else {
+        io.to(roomCode).emit("game:challenge-failed", {
+          challengerName: result.challengerName || "Unknown",
+          targetSeat,
+          message: `${result.challengerName}'s challenge failed! ${result.targetName}'s hand is valid.`,
+        });
+        log(`Challenge failed for ${targetSeat} in room ${roomCode} by ${result.challengerName}`, "socket");
+      }
+
+      broadcastState(io, roomCode);
     });
 
     socket.on("game:timeout-action", ({ action }) => {

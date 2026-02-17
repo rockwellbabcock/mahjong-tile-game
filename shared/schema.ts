@@ -94,6 +94,15 @@ export interface RoomConfig {
   zombieBlanks: ZombieBlanksConfig;
 }
 
+export type DeadHandReason = "tile-count" | "invalid-exposure" | "impossible-hand" | "technical";
+
+export interface DeadHandStatus {
+  isDead: boolean;
+  reason?: DeadHandReason;
+  challengedBy?: string;
+  rack?: "main" | "partner" | "both";
+}
+
 export interface PlayerState {
   id: string;
   name: string;
@@ -104,6 +113,7 @@ export interface PlayerState {
   rejoinToken?: string;
   isBot?: boolean;
   controlledBy?: string;
+  deadHand?: DeadHandStatus;
 }
 
 export interface RoomState {
@@ -147,6 +157,7 @@ export interface ClientRoomView {
     connected: boolean;
     isBot?: boolean;
     controlledBy?: string | null;
+    deadHand?: DeadHandStatus;
   }[];
   myHand: Tile[];
   mySeat: PlayerSeat;
@@ -189,6 +200,8 @@ export interface ServerToClientEvents {
   "player:reconnected": (data: { playerName: string; seat: PlayerSeat }) => void;
   "player:timeout": (data: DisconnectedPlayerInfo) => void;
   "game:ended": (data: { reason: string }) => void;
+  "game:dead-hand": (data: { seat: PlayerSeat; playerName: string; reason: DeadHandReason; rack?: "main" | "partner" | "both"; challengerName: string }) => void;
+  "game:challenge-failed": (data: { challengerName: string; targetSeat: PlayerSeat; message: string }) => void;
   "error": (data: { message: string }) => void;
 }
 
@@ -209,6 +222,7 @@ export interface ClientToServerEvents {
   "game:test-siamese-win": () => void;
   "game:forfeit": () => void;
   "game:zombie-exchange": (data: { blankTileId: string; discardTileId: string }) => void;
+  "game:challenge": (data: { targetSeat: PlayerSeat; rack?: "main" | "partner" }) => void;
   "game:charleston-select": (data: { tileId: string }) => void;
   "game:charleston-ready": () => void;
   "game:charleston-skip": () => void;

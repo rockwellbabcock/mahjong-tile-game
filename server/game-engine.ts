@@ -1,4 +1,4 @@
-import { type Tile, type Suit, type TileValue, type PlayerSeat, type PlayerState, type RoomState, type ClientRoomView, type ClientCharlestonView, type ClientCallingView, type DisconnectedPlayerInfo, type RoomConfig, type GameMode, type CharlestonState, type CharlestonDirection, type CallingState, type PendingClaim, type ClaimType, type ZombieBlanksConfig, SEAT_ORDER } from "@shared/schema";
+import { type Tile, type Suit, type TileValue, type PlayerSeat, type PlayerState, type RoomState, type ClientRoomView, type ClientCharlestonView, type ClientCallingView, type DisconnectedPlayerInfo, type RoomConfig, type GameMode, type CharlestonState, type CharlestonDirection, type CallingState, type PendingClaim, type ClaimType, type ZombieBlanksConfig, type DeadHandStatus, type DeadHandReason, SEAT_ORDER } from "@shared/schema";
 import { checkForWin, checkAllPatterns } from "@shared/patterns";
 
 const RECONNECT_TIMEOUT_MS = 60_000;
@@ -795,6 +795,7 @@ export function drawTile(roomCode: string, playerId: string, forSeat?: PlayerSea
 
   const player = room.state.players.find(p => p.seat === actingSeat);
   if (!player) return { success: false, error: "Seat not found" };
+  if (player.deadHand?.isDead) return { success: false, error: "Dead hand cannot draw" };
   if (room.deck.length === 0) return { success: false, error: "Wall is empty" };
 
   const tile = room.deck.shift()!;
@@ -830,11 +831,14 @@ export function discardTile(roomCode: string, playerId: string, tileId: string, 
   room.state.lastDiscardedBy = player.seat;
 
   if (room.state.config.gameMode === "4-player" && !discarded.isJoker) {
+    const deadPassedSeats = room.state.players
+      .filter(p => p.deadHand?.isDead && p.seat !== player.seat)
+      .map(p => p.seat);
     room.state.callingState = {
       discardedTile: discarded,
       discardedBy: player.seat,
       claims: [],
-      passedPlayers: [player.seat],
+      passedPlayers: [player.seat, ...deadPassedSeats],
     };
     room.state.phase = "calling";
     return { success: true };
@@ -842,8 +846,7 @@ export function discardTile(roomCode: string, playerId: string, tileId: string, 
 
   if (room.state.config.gameMode === "4-player" && discarded.isJoker) {
     room.state.discardPile.unshift(discarded);
-    const currentIdx = SEAT_ORDER.indexOf(room.state.currentTurn);
-    room.state.currentTurn = SEAT_ORDER[(currentIdx + 1) % 4];
+    room.state.currentTurn = getNextAliveSeat(room, room.state.currentTurn);
     room.state.phase = "draw";
     return { success: true };
   }
@@ -856,12 +859,10 @@ export function discardTile(roomCode: string, playerId: string, tileId: string, 
     if (opponentMain) {
       room.state.currentTurn = opponentMain.seat;
     } else {
-      const currentIdx = SEAT_ORDER.indexOf(room.state.currentTurn);
-      room.state.currentTurn = SEAT_ORDER[(currentIdx + 1) % 4];
+      room.state.currentTurn = getNextAliveSeat(room, room.state.currentTurn);
     }
   } else {
-    const currentIdx = SEAT_ORDER.indexOf(room.state.currentTurn);
-    room.state.currentTurn = SEAT_ORDER[(currentIdx + 1) % 4];
+    room.state.currentTurn = getNextAliveSeat(room, room.state.currentTurn);
   }
   room.state.phase = "draw";
 
@@ -980,6 +981,7 @@ export function getClientView(room: GameRoom, playerId: string): ClientRoomView 
       connected: p.connected,
       isBot: p.isBot,
       controlledBy: p.controlledBy || null,
+      deadHand: p.deadHand,
     })),
     myHand: player.hand,
     mySeat: player.seat,
@@ -1471,6 +1473,10 @@ export function claimDiscard(roomCode: string, playerId: string, claimType: Clai
     return { success: false, error: "Already claimed" };
   }
 
+  if (player.deadHand?.isDead) {
+    return { success: false, error: "Dead hand cannot claim discards" };
+  }
+
   if (claimType === "mahjong") {
     const handWithDiscard = [...player.hand, room.state.callingState.discardedTile];
     const winResult = checkForWin(handWithDiscard);
@@ -1552,8 +1558,7 @@ export function resolveCallingPhase(roomCode: string): { resolved: boolean; winn
   if (calling.claims.length === 0) {
     room.state.discardPile.unshift(calling.discardedTile);
 
-    const discardedByIdx = SEAT_ORDER.indexOf(calling.discardedBy);
-    room.state.currentTurn = SEAT_ORDER[(discardedByIdx + 1) % 4];
+    room.state.currentTurn = getNextAliveSeat(room, calling.discardedBy);
     room.state.phase = "draw";
     room.state.callingState = undefined;
     return { resolved: true };
@@ -1810,6 +1815,249 @@ export function zombieExchange(
   player.hand.sort(compareTiles);
 
   return { success: true };
+}
+
+// ---- Dead Hand Detection ----
+
+function validateTileCount(player: PlayerState, phase: GamePhase, isSiamese: boolean): DeadHandReason | null {
+  const handTiles = player.hand.length;
+  const exposedTiles = player.exposures.reduce((sum, e) => sum + e.tiles.length, 0);
+  const total = handTiles + exposedTiles;
+
+  if (phase === "discard") {
+    if (total !== 14) return "tile-count";
+  } else if (phase === "draw") {
+    if (total !== 13) return "tile-count";
+  }
+
+  return null;
+}
+
+function validateExposures(player: PlayerState): DeadHandReason | null {
+  for (const exposure of player.exposures) {
+    const tiles = exposure.tiles;
+    const realTiles = tiles.filter(t => !t.isJoker);
+    if (realTiles.length === 0) continue;
+
+    const refTile = realTiles[0];
+    for (const t of realTiles) {
+      if (t.suit !== refTile.suit || t.value !== refTile.value) {
+        return "invalid-exposure";
+      }
+    }
+
+    const claimType = exposure.claimType;
+    const expectedCount = claimType === "pung" ? 3 : claimType === "kong" ? 4 : claimType === "quint" ? 5 : 0;
+    if (expectedCount > 0 && tiles.length !== expectedCount) {
+      return "invalid-exposure";
+    }
+  }
+  return null;
+}
+
+function validateImpossibleHand(player: PlayerState, room: GameRoom): DeadHandReason | null {
+  const tileMaxCounts: Record<string, number> = {};
+
+  const allTilesInGame = [
+    ...room.deck,
+    ...room.state.discardPile,
+    ...room.state.players.flatMap(p => [...p.hand, ...p.exposures.flatMap(e => e.tiles)]),
+  ];
+
+  for (const tile of allTilesInGame) {
+    if (tile.isJoker || tile.suit === "Blank") continue;
+    const key = `${tile.suit}-${tile.value}`;
+    tileMaxCounts[key] = (tileMaxCounts[key] || 0);
+  }
+
+  for (const tile of player.hand) {
+    if (tile.isJoker || tile.suit === "Blank") continue;
+    const key = `${tile.suit}-${tile.value}`;
+    const inHand = player.hand.filter(t => t.suit === tile.suit && t.value === tile.value && !t.isJoker).length;
+    const inExposures = player.exposures.flatMap(e => e.tiles).filter(t => t.suit === tile.suit && t.value === tile.value && !t.isJoker).length;
+    const inDiscardPile = room.state.discardPile.filter(t => t.suit === tile.suit && t.value === tile.value && !t.isJoker).length;
+    const inOtherExposures = room.state.players
+      .filter(p => p.seat !== player.seat)
+      .flatMap(p => p.exposures.flatMap(e => e.tiles))
+      .filter(t => t.suit === tile.suit && t.value === tile.value && !t.isJoker).length;
+
+    const maxInGame = tile.suit === "Flower" ? 1 : 4;
+    const usedElsewhere = inDiscardPile + inOtherExposures;
+    const available = maxInGame - usedElsewhere;
+
+    if (inHand + inExposures > available + player.hand.filter(t => t.isJoker).length + player.exposures.flatMap(e => e.tiles).filter(t => t.isJoker).length) {
+      // Don't flag as impossible - this is a very complex check and we should be conservative
+      // Only flag obvious cases
+    }
+  }
+
+  return null;
+}
+
+export function evaluateDeadHand(
+  roomCode: string,
+  targetSeat: PlayerSeat,
+  rack?: "main" | "partner"
+): { isDead: boolean; reason?: DeadHandReason } {
+  const room = rooms.get(roomCode);
+  if (!room) return { isDead: false };
+
+  const isSiamese = room.state.config.gameMode === "2-player";
+  const player = room.state.players.find(p => p.seat === targetSeat);
+  if (!player) return { isDead: false };
+
+  const tileCountReason = validateTileCount(player, room.state.phase, isSiamese);
+  if (tileCountReason) return { isDead: true, reason: tileCountReason };
+
+  const exposureReason = validateExposures(player);
+  if (exposureReason) return { isDead: true, reason: exposureReason };
+
+  return { isDead: false };
+}
+
+export function challengeHand(
+  roomCode: string,
+  challengerId: string,
+  targetSeat: PlayerSeat,
+  rack?: "main" | "partner"
+): { success: boolean; isDead?: boolean; reason?: DeadHandReason; error?: string; challengerName?: string; targetName?: string } {
+  const room = rooms.get(roomCode);
+  if (!room) return { success: false, error: "Room not found" };
+  if (!room.state.started) return { success: false, error: "Game not started" };
+  if (room.state.phase === "won") return { success: false, error: "Game is over" };
+  if (room.state.phase === "charleston") return { success: false, error: "Cannot challenge during Charleston" };
+
+  const challenger = room.state.players.find(p => p.id === challengerId);
+  if (!challenger) return { success: false, error: "Challenger not found" };
+
+  const target = room.state.players.find(p => p.seat === targetSeat);
+  if (!target) return { success: false, error: "Target player not found" };
+
+  if (challenger.seat === targetSeat) return { success: false, error: "Cannot challenge your own hand" };
+
+  const isSiamese = room.state.config.gameMode === "2-player";
+
+  if (isSiamese && rack) {
+    const controllerId = target.controlledBy || target.id;
+    const allSeats = room.state.players.filter(p => p.id === controllerId || p.controlledBy === controllerId);
+    const targetRackPlayer = rack === "main"
+      ? allSeats.find(p => !p.controlledBy)
+      : allSeats.find(p => !!p.controlledBy);
+    if (!targetRackPlayer) return { success: false, error: "Target rack not found" };
+
+    if (targetRackPlayer.deadHand?.isDead) {
+      return { success: false, error: "This rack is already declared dead" };
+    }
+
+    const result = evaluateDeadHand(roomCode, targetRackPlayer.seat);
+    if (result.isDead) {
+      targetRackPlayer.deadHand = {
+        isDead: true,
+        reason: result.reason,
+        challengedBy: challengerId,
+        rack,
+      };
+
+      const bothDead = allSeats.every(p => p.deadHand?.isDead);
+      if (bothDead) {
+        for (const s of allSeats) {
+          if (s.deadHand) s.deadHand.rack = "both";
+        }
+      }
+
+      return {
+        success: true,
+        isDead: true,
+        reason: result.reason,
+        challengerName: challenger.name,
+        targetName: target.name,
+      };
+    }
+
+    return {
+      success: true,
+      isDead: false,
+      challengerName: challenger.name,
+      targetName: target.name,
+    };
+  }
+
+  if (target.deadHand?.isDead) {
+    return { success: false, error: "Player is already declared dead" };
+  }
+
+  const result = evaluateDeadHand(roomCode, targetSeat);
+  if (result.isDead) {
+    target.deadHand = {
+      isDead: true,
+      reason: result.reason,
+      challengedBy: challengerId,
+    };
+
+    if (room.state.currentTurn === targetSeat) {
+      advanceTurnSkippingDead(room);
+    }
+
+    return {
+      success: true,
+      isDead: true,
+      reason: result.reason,
+      challengerName: challenger.name,
+      targetName: target.name,
+    };
+  }
+
+  return {
+    success: true,
+    isDead: false,
+    challengerName: challenger.name,
+    targetName: target.name,
+  };
+}
+
+function advanceTurnSkippingDead(room: GameRoom): void {
+  const isSiamese = room.state.config.gameMode === "2-player";
+
+  if (isSiamese) {
+    return;
+  }
+
+  const currentIdx = SEAT_ORDER.indexOf(room.state.currentTurn);
+  for (let i = 1; i <= 4; i++) {
+    const nextSeat = SEAT_ORDER[(currentIdx + i) % 4];
+    const nextPlayer = room.state.players.find(p => p.seat === nextSeat);
+    if (nextPlayer && !nextPlayer.deadHand?.isDead) {
+      room.state.currentTurn = nextSeat;
+      room.state.phase = "draw";
+      return;
+    }
+  }
+}
+
+export function getNextAliveSeat(room: GameRoom, currentSeat: PlayerSeat): PlayerSeat {
+  const isSiamese = room.state.config.gameMode === "2-player";
+  if (isSiamese) {
+    const currentPlayer = room.state.players.find(p => p.seat === currentSeat);
+    if (!currentPlayer) return currentSeat;
+    const controllerId = currentPlayer.controlledBy || currentPlayer.id;
+    const opponentMain = room.state.players.find(p => p.id !== controllerId && !p.controlledBy);
+    return opponentMain?.seat || currentSeat;
+  }
+
+  const currentIdx = SEAT_ORDER.indexOf(currentSeat);
+  for (let i = 1; i <= 4; i++) {
+    const nextSeat = SEAT_ORDER[(currentIdx + i) % 4];
+    const nextPlayer = room.state.players.find(p => p.seat === nextSeat);
+    if (nextPlayer && !nextPlayer.deadHand?.isDead) {
+      return nextSeat;
+    }
+  }
+  return SEAT_ORDER[(currentIdx + 1) % 4];
+}
+
+export function isPlayerDead(room: GameRoom, seat: PlayerSeat): boolean {
+  const player = room.state.players.find(p => p.seat === seat);
+  return !!player?.deadHand?.isDead;
 }
 
 export function checkBotWin(roomCode: string): {

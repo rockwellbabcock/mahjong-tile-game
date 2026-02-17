@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { type ClientRoomView, type PlayerSeat, type DisconnectedPlayerInfo, type TimeoutAction, type RoomConfig, type GameMode } from "@shared/schema";
+import { type ClientRoomView, type PlayerSeat, type DisconnectedPlayerInfo, type TimeoutAction, type RoomConfig, type GameMode, type DeadHandReason } from "@shared/schema";
 import { getSocket, type GameSocket } from "@/lib/socket";
 import { getHints, type PatternMatch } from "@shared/patterns";
 
@@ -34,6 +34,14 @@ export function useMultiplayerGame() {
   const [timedOutPlayer, setTimedOutPlayer] = useState<DisconnectedPlayerInfo | null>(null);
   const [gameEnded, setGameEnded] = useState<string | null>(null);
   const [activeSuggestionPattern, setActiveSuggestionPattern] = useState<string | null>(null);
+  const [deadHandAlert, setDeadHandAlert] = useState<{
+    seat: PlayerSeat;
+    playerName: string;
+    reason: DeadHandReason;
+    rack?: "main" | "partner" | "both";
+    challengerName: string;
+  } | null>(null);
+  const [challengeFailedAlert, setChallengeFailedAlert] = useState<string | null>(null);
 
   const socketRef = useRef<GameSocket | null>(null);
   const hasAttemptedRejoin = useRef(false);
@@ -133,6 +141,16 @@ export function useMultiplayerGame() {
       sessionStorage.removeItem(SESSION_KEY_NAME);
       sessionStorage.removeItem(SESSION_KEY_SEAT);
       sessionStorage.removeItem(SESSION_KEY_TOKEN);
+    });
+
+    socket.on("game:dead-hand", (data) => {
+      setDeadHandAlert(data);
+      setTimeout(() => setDeadHandAlert(null), 8000);
+    });
+
+    socket.on("game:challenge-failed", (data) => {
+      setChallengeFailedAlert(data.message);
+      setTimeout(() => setChallengeFailedAlert(null), 5000);
     });
 
     socket.on("error", (data) => {
