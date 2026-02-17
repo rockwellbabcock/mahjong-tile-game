@@ -24,7 +24,7 @@ export default function LobbyPage({ game }: LobbyPageProps) {
   const [zombieBlanks, setZombieBlanks] = useState<ZombieBlanksConfig>({
     enabled: false,
     count: 6,
-    exchangeAnytime: false,
+    exchangeAnytime: true,
   });
   const [, setLocation] = useLocation();
 
