@@ -494,6 +494,18 @@ export function setupSocket(httpServer: HttpServer): Server<ClientToServerEvents
       }
     });
 
+    socket.on("game:forfeit", () => {
+      const roomCode = playerRooms.get(socket.id);
+      if (!roomCode) return;
+
+      const room = getRoom(roomCode);
+      if (!room || !room.state.started) return;
+
+      log(`Game forfeited in room ${roomCode} by ${socket.id}`, "socket");
+      io.to(roomCode).emit("game:ended", { reason: "A player forfeited the game." });
+      endGame(roomCode);
+    });
+
     socket.on("game:timeout-action", ({ action }) => {
       const roomCode = playerRooms.get(socket.id);
       if (!roomCode) return;

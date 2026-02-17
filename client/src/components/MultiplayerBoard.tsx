@@ -41,6 +41,7 @@ interface MultiplayerBoardProps {
   onSelectPattern: (patternId: string | null) => void;
   onSwapJoker: (myTileId: string, targetSeat: PlayerSeat, exposureIndex: number) => void;
   onTestSiameseWin?: () => void;
+  onForfeit?: () => void;
 }
 
 const SEAT_LABELS: Record<PlayerSeat, string> = {

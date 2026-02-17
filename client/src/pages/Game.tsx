@@ -47,6 +47,7 @@ export default function GamePage() {
     swapJoker,
     handleTimeoutAction,
     selectSuggestionPattern,
+    forfeitGame,
   } = game;
 
   if (lobbyState !== "playing" || !gameState) {
@@ -121,7 +122,7 @@ export default function GamePage() {
               onClaim={claimDiscardTile}
               onPass={passOnDiscardTile}
               pursuingConcealedPattern={
-                hints.length > 0 && hints[0].concealedOnly === true
+                hints !== null && hints.closest.length > 0 && hints.closest[0].concealedOnly === true
               }
             />
           )}

@@ -226,6 +226,10 @@ export function useMultiplayerGame() {
     socketRef.current?.emit("game:test-siamese-win");
   }, []);
 
+  const forfeitGame = useCallback(() => {
+    socketRef.current?.emit("game:forfeit");
+  }, []);
+
   const charlestonSelectTile = useCallback((tileId: string) => {
     socketRef.current?.emit("game:charleston-select", { tileId });
   }, []);
@@ -320,5 +324,6 @@ export function useMultiplayerGame() {
     swapJoker,
     handleTimeoutAction,
     selectSuggestionPattern,
+    forfeitGame,
   };
 }
