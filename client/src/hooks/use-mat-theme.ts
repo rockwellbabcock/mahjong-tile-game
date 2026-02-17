@@ -1,21 +1,21 @@
 import { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { type TileStyle } from "./use-tile-style";
 
-export type MatTheme = "teal" | "blue" | "burgundy";
+export type MatTheme = "classic" | "modern" | "minimal";
 
 export const MAT_TILE_PAIRS: Record<TileStyle, MatTheme> = {
-  classic: "teal",
-  emoji: "blue",
-  text: "burgundy",
+  classic: "classic",
+  emoji: "modern",
+  text: "minimal",
 };
 
 export const MAT_LABELS: Record<MatTheme, string> = {
-  teal: "Jade Table",
-  blue: "Sapphire Table",
-  burgundy: "Rosewood Table",
+  classic: "Classic Mat",
+  modern: "Modern Mat",
+  minimal: "Minimal Mat",
 };
 
-const MAT_ORDER: MatTheme[] = ["teal", "blue", "burgundy"];
+const MAT_ORDER: MatTheme[] = ["classic", "modern", "minimal"];
 
 interface MatThemeContextValue {
   matTheme: MatTheme;
@@ -27,7 +27,7 @@ interface MatThemeContextValue {
 }
 
 export const MatThemeContext = createContext<MatThemeContextValue>({
-  matTheme: "teal",
+  matTheme: "classic",
   setMatTheme: () => {},
   cycleMatTheme: () => {},
   syncWithTileStyle: () => {},
@@ -39,7 +39,8 @@ export function useMatThemeState(): MatThemeContextValue {
   const savedMat = typeof window !== "undefined" ? localStorage.getItem("mat-theme") : null;
   const savedAutoSync = typeof window !== "undefined" ? localStorage.getItem("mat-auto-sync") : null;
 
-  const initial = MAT_ORDER.includes(savedMat as MatTheme) ? (savedMat as MatTheme) : "teal";
+  const migrated = savedMat === "teal" ? "classic" : savedMat === "blue" ? "modern" : savedMat === "burgundy" ? "minimal" : savedMat;
+  const initial = MAT_ORDER.includes(migrated as MatTheme) ? (migrated as MatTheme) : "classic";
   const [matTheme, setMatThemeState] = useState<MatTheme>(initial);
   const [autoSync, setAutoSyncState] = useState(savedAutoSync !== "false");
 
@@ -76,49 +77,73 @@ export function useMatTheme(): MatThemeContextValue {
 }
 
 export interface MatColors {
-  tableBg: string;
   tableFrom: string;
   tableVia: string;
   tableTo: string;
+  borderWidth: string;
   borderColor: string;
   dotColor: string;
+  dotOpacity: string;
   activeGlow: string;
   headerBg: string;
   headerBorder: string;
+  cornerDecorations: boolean;
+  cornerColor: string;
+  innerBorderColor: string;
+  surfaceTexture: "dots" | "linen" | "none";
+  surfaceOverlay: string;
 }
 
 export const MAT_COLORS: Record<MatTheme, MatColors> = {
-  teal: {
-    tableBg: "bg-teal-800",
-    tableFrom: "from-teal-900",
-    tableVia: "via-teal-800",
-    tableTo: "to-teal-700",
-    borderColor: "border-stone-600",
-    dotColor: "rgba(0,80,80,0.15)",
-    activeGlow: "bg-teal-500/20 border border-teal-400/40",
-    headerBg: "bg-stone-900/90",
-    headerBorder: "border-stone-700",
+  classic: {
+    tableFrom: "from-emerald-950",
+    tableVia: "via-emerald-900",
+    tableTo: "to-emerald-800",
+    borderWidth: "border-[6px] sm:border-[10px]",
+    borderColor: "border-amber-900/80",
+    dotColor: "rgba(0,60,30,0.25)",
+    dotOpacity: "opacity-20",
+    activeGlow: "bg-emerald-500/20 border border-emerald-400/40",
+    headerBg: "bg-emerald-950/95",
+    headerBorder: "border-emerald-800/60",
+    cornerDecorations: true,
+    cornerColor: "rgba(212,175,55,0.35)",
+    innerBorderColor: "rgba(212,175,55,0.2)",
+    surfaceTexture: "dots",
+    surfaceOverlay: "from-black/15 via-transparent to-black/10",
   },
-  blue: {
-    tableBg: "bg-blue-900",
-    tableFrom: "from-blue-950",
-    tableVia: "via-blue-900",
-    tableTo: "to-blue-800",
-    borderColor: "border-amber-800/60",
-    dotColor: "rgba(30,30,80,0.15)",
-    activeGlow: "bg-blue-500/20 border border-blue-400/40",
-    headerBg: "bg-slate-900/90",
-    headerBorder: "border-slate-700",
+  modern: {
+    tableFrom: "from-slate-950",
+    tableVia: "via-slate-900",
+    tableTo: "to-indigo-950",
+    borderWidth: "border-2 sm:border-4",
+    borderColor: "border-slate-600/50",
+    dotColor: "rgba(100,116,139,0.12)",
+    dotOpacity: "opacity-10",
+    activeGlow: "bg-indigo-500/20 border border-indigo-400/40",
+    headerBg: "bg-slate-950/95",
+    headerBorder: "border-slate-700/50",
+    cornerDecorations: false,
+    cornerColor: "transparent",
+    innerBorderColor: "rgba(99,102,241,0.15)",
+    surfaceTexture: "linen",
+    surfaceOverlay: "from-black/10 via-transparent to-indigo-950/20",
   },
-  burgundy: {
-    tableBg: "bg-rose-950",
-    tableFrom: "from-rose-950",
-    tableVia: "via-rose-900",
-    tableTo: "to-rose-800",
-    borderColor: "border-amber-900/50",
-    dotColor: "rgba(80,20,20,0.15)",
-    activeGlow: "bg-rose-500/20 border border-rose-400/40",
-    headerBg: "bg-stone-900/90",
-    headerBorder: "border-stone-700",
+  minimal: {
+    tableFrom: "from-stone-700",
+    tableVia: "via-stone-600",
+    tableTo: "to-stone-500",
+    borderWidth: "border sm:border-2",
+    borderColor: "border-stone-400/40",
+    dotColor: "transparent",
+    dotOpacity: "opacity-0",
+    activeGlow: "bg-stone-300/20 border border-stone-300/30",
+    headerBg: "bg-stone-700/95",
+    headerBorder: "border-stone-500/40",
+    cornerDecorations: false,
+    cornerColor: "transparent",
+    innerBorderColor: "transparent",
+    surfaceTexture: "none",
+    surfaceOverlay: "from-black/5 via-transparent to-stone-400/5",
   },
 };

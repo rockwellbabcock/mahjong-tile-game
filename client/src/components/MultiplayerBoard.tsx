@@ -548,14 +548,56 @@ export function MultiplayerBoard({
       <div className="flex-1 flex flex-col min-h-0">
         <div className="flex-1 relative overflow-hidden" style={{ perspective: "900px" }}>
           <div
-            className={`absolute inset-0 bg-gradient-to-b ${mat.tableFrom} ${mat.tableVia} ${mat.tableTo} border-4 sm:border-8 ${mat.borderColor} shadow-inner`}
+            className={`absolute inset-0 bg-gradient-to-b ${mat.tableFrom} ${mat.tableVia} ${mat.tableTo} ${mat.borderWidth} ${mat.borderColor} shadow-inner`}
             style={{ transform: "rotateX(8deg)", transformOrigin: "center bottom" }}
           >
-            <div className="absolute inset-0 opacity-15" style={{
-              backgroundImage: `radial-gradient(circle at 2px 2px, ${mat.dotColor} 1px, transparent 0)`,
-              backgroundSize: "10px 10px",
-            }} />
-            <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/5 pointer-events-none" />
+            {mat.surfaceTexture === "dots" && (
+              <div className={`absolute inset-0 ${mat.dotOpacity}`} style={{
+                backgroundImage: `radial-gradient(circle at 2px 2px, ${mat.dotColor} 1px, transparent 0)`,
+                backgroundSize: "10px 10px",
+              }} />
+            )}
+            {mat.surfaceTexture === "linen" && (
+              <div className={`absolute inset-0 ${mat.dotOpacity}`} style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg width='4' height='4' viewBox='0 0 4 4' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 3h1v1H1V3zm2-2h1v1H3V1z' fill='%23ffffff' fill-opacity='0.06'/%3E%3C/svg%3E")`,
+              }} />
+            )}
+            <div className={`absolute inset-0 bg-gradient-to-b ${mat.surfaceOverlay} pointer-events-none`} />
+
+            {mat.innerBorderColor !== "transparent" && (
+              <div className="absolute inset-2 sm:inset-3 pointer-events-none rounded-sm" style={{
+                border: `1px solid ${mat.innerBorderColor}`,
+              }} />
+            )}
+
+            {mat.cornerDecorations && (
+              <>
+                <svg className="absolute top-1 left-1 sm:top-2 sm:left-2 w-8 h-8 sm:w-12 sm:h-12 pointer-events-none" viewBox="0 0 48 48" fill="none">
+                  <path d="M4 24C4 12.954 12.954 4 24 4" stroke={mat.cornerColor} strokeWidth="1.5" fill="none" />
+                  <path d="M8 24C8 15.163 15.163 8 24 8" stroke={mat.cornerColor} strokeWidth="1" fill="none" />
+                  <circle cx="6" cy="6" r="2" fill={mat.cornerColor} />
+                  <path d="M4 4L14 4M4 4L4 14" stroke={mat.cornerColor} strokeWidth="1.5" />
+                </svg>
+                <svg className="absolute top-1 right-1 sm:top-2 sm:right-2 w-8 h-8 sm:w-12 sm:h-12 pointer-events-none" viewBox="0 0 48 48" fill="none" style={{ transform: "scaleX(-1)" }}>
+                  <path d="M4 24C4 12.954 12.954 4 24 4" stroke={mat.cornerColor} strokeWidth="1.5" fill="none" />
+                  <path d="M8 24C8 15.163 15.163 8 24 8" stroke={mat.cornerColor} strokeWidth="1" fill="none" />
+                  <circle cx="6" cy="6" r="2" fill={mat.cornerColor} />
+                  <path d="M4 4L14 4M4 4L4 14" stroke={mat.cornerColor} strokeWidth="1.5" />
+                </svg>
+                <svg className="absolute bottom-1 left-1 sm:bottom-2 sm:left-2 w-8 h-8 sm:w-12 sm:h-12 pointer-events-none" viewBox="0 0 48 48" fill="none" style={{ transform: "scaleY(-1)" }}>
+                  <path d="M4 24C4 12.954 12.954 4 24 4" stroke={mat.cornerColor} strokeWidth="1.5" fill="none" />
+                  <path d="M8 24C8 15.163 15.163 8 24 8" stroke={mat.cornerColor} strokeWidth="1" fill="none" />
+                  <circle cx="6" cy="6" r="2" fill={mat.cornerColor} />
+                  <path d="M4 4L14 4M4 4L4 14" stroke={mat.cornerColor} strokeWidth="1.5" />
+                </svg>
+                <svg className="absolute bottom-1 right-1 sm:bottom-2 sm:right-2 w-8 h-8 sm:w-12 sm:h-12 pointer-events-none" viewBox="0 0 48 48" fill="none" style={{ transform: "scale(-1,-1)" }}>
+                  <path d="M4 24C4 12.954 12.954 4 24 4" stroke={mat.cornerColor} strokeWidth="1.5" fill="none" />
+                  <path d="M8 24C8 15.163 15.163 8 24 8" stroke={mat.cornerColor} strokeWidth="1" fill="none" />
+                  <circle cx="6" cy="6" r="2" fill={mat.cornerColor} />
+                  <path d="M4 4L14 4M4 4L4 14" stroke={mat.cornerColor} strokeWidth="1.5" />
+                </svg>
+              </>
+            )}
 
             <div className="absolute inset-0 flex flex-col p-1 sm:p-2">
               {isSiamese ? (
