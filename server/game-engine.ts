@@ -829,7 +829,7 @@ export function discardTile(roomCode: string, playerId: string, tileId: string, 
   room.state.lastDiscard = discarded;
   room.state.lastDiscardedBy = player.seat;
 
-  if (room.state.config.gameMode === "4-player") {
+  if (room.state.config.gameMode === "4-player" && !discarded.isJoker) {
     room.state.callingState = {
       discardedTile: discarded,
       discardedBy: player.seat,
@@ -837,6 +837,14 @@ export function discardTile(roomCode: string, playerId: string, tileId: string, 
       passedPlayers: [player.seat],
     };
     room.state.phase = "calling";
+    return { success: true };
+  }
+
+  if (room.state.config.gameMode === "4-player" && discarded.isJoker) {
+    room.state.discardPile.unshift(discarded);
+    const currentIdx = SEAT_ORDER.indexOf(room.state.currentTurn);
+    room.state.currentTurn = SEAT_ORDER[(currentIdx + 1) % 4];
+    room.state.phase = "draw";
     return { success: true };
   }
 
@@ -1463,6 +1471,14 @@ export function claimDiscard(roomCode: string, playerId: string, claimType: Clai
     return { success: false, error: "Already claimed" };
   }
 
+  if (claimType === "mahjong") {
+    const handWithDiscard = [...player.hand, room.state.callingState.discardedTile];
+    const winResult = checkForWin(handWithDiscard);
+    if (!winResult) {
+      return { success: false, error: "Your hand does not form a winning combination with this tile" };
+    }
+  }
+
   const requiredTilesFromHand = claimType === "pung" ? 2 : claimType === "kong" ? 3 : claimType === "quint" ? 4 : 0;
 
   if (claimType !== "mahjong") {
@@ -1599,16 +1615,29 @@ export function botCallingDecision(roomCode: string): void {
     if (calling.passedPlayers.includes(bot.seat)) continue;
     if (calling.claims.some(c => c.seat === bot.seat)) continue;
 
-    const matchingTiles = bot.hand.filter(t =>
+    const exactMatches = bot.hand.filter(t =>
       t.suit === calling.discardedTile.suit && t.value === calling.discardedTile.value
     );
+    const jokers = bot.hand.filter(t => t.isJoker);
+    const matchingTiles = [...exactMatches, ...jokers];
 
-    if (matchingTiles.length >= 2) {
-      const tileIds = matchingTiles.slice(0, 2).map(t => t.id);
+    const botHandWithDiscard = [...bot.hand, calling.discardedTile];
+    const winResult = checkForWin(botHandWithDiscard);
+
+    if (winResult) {
       calling.claims.push({
         playerId: bot.id,
         seat: bot.seat,
-        claimType: "pung",
+        claimType: "mahjong",
+        tileIds: [],
+      });
+      console.log(`[bot] ${bot.name} claims Mahjong on discarded ${calling.discardedTile.suit} ${calling.discardedTile.value}`);
+    } else if (matchingTiles.length >= 4) {
+      const tileIds = matchingTiles.slice(0, 4).map(t => t.id);
+      calling.claims.push({
+        playerId: bot.id,
+        seat: bot.seat,
+        claimType: "quint",
         tileIds,
       });
     } else if (matchingTiles.length >= 3) {
@@ -1617,6 +1646,14 @@ export function botCallingDecision(roomCode: string): void {
         playerId: bot.id,
         seat: bot.seat,
         claimType: "kong",
+        tileIds,
+      });
+    } else if (matchingTiles.length >= 2) {
+      const tileIds = matchingTiles.slice(0, 2).map(t => t.id);
+      calling.claims.push({
+        playerId: bot.id,
+        seat: bot.seat,
+        claimType: "pung",
         tileIds,
       });
     } else {
