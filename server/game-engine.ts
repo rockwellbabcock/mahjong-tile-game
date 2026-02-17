@@ -881,6 +881,31 @@ export function sortPlayerHand(roomCode: string, playerId: string, forSeat?: Pla
   return true;
 }
 
+export function reorderPlayerHand(roomCode: string, playerId: string, tileIds: string[], forSeat?: PlayerSeat): boolean {
+  const room = rooms.get(roomCode);
+  if (!room) return false;
+
+  const seat = forSeat || room.state.players.find(p => p.id === playerId)?.seat;
+  if (!seat) return false;
+
+  const player = room.state.players.find(p => p.seat === seat);
+  if (!player) return false;
+
+  if (!canPlayerActForSeat(room, playerId, seat)) return false;
+
+  if (tileIds.length !== player.hand.length) return false;
+
+  const handMap = new Map(player.hand.map(t => [t.id, t]));
+  const reordered = [];
+  for (const id of tileIds) {
+    const tile = handMap.get(id);
+    if (!tile) return false;
+    reordered.push(tile);
+  }
+  player.hand = reordered;
+  return true;
+}
+
 export function transferTile(roomCode: string, playerId: string, tileId: string, fromSeat: PlayerSeat, toSeat: PlayerSeat): { success: boolean; error?: string } {
   const room = rooms.get(roomCode);
   if (!room) return { success: false, error: "Room not found" };
