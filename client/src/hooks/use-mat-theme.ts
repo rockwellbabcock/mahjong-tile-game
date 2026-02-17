@@ -56,6 +56,8 @@ export function useMatThemeState(): MatThemeContextValue {
       localStorage.setItem("mat-theme", next);
       return next;
     });
+    setAutoSyncState(false);
+    localStorage.setItem("mat-auto-sync", "false");
   }, []);
 
   const syncWithTileStyle = useCallback((tileStyle: TileStyle) => {
