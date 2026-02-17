@@ -176,7 +176,11 @@ export function setupSocket(httpServer: HttpServer): Server<ClientToServerEvents
           if (started) {
             log(`Game auto-started with bots in room ${roomCode} (mode: ${room.state.config.gameMode})`, "socket");
             io.to(roomCode).emit("game:started");
-            charlestonBotAutoSelect(roomCode);
+            if (room.state.config.gameMode !== "2-player") {
+              charlestonBotAutoSelect(roomCode);
+            } else {
+              handleBotTurns(io, roomCode);
+            }
             broadcastState(io, roomCode);
             return;
           }
@@ -227,7 +231,11 @@ export function setupSocket(httpServer: HttpServer): Server<ClientToServerEvents
           if (started) {
             log(`Game started in room ${code}`, "socket");
             io.to(code).emit("game:started");
-            charlestonBotAutoSelect(code);
+            if (room.state.config.gameMode !== "2-player") {
+              charlestonBotAutoSelect(code);
+            } else {
+              handleBotTurns(io, code);
+            }
             broadcastState(io, code);
             return;
           }
@@ -496,9 +504,14 @@ export function setupSocket(httpServer: HttpServer): Server<ClientToServerEvents
 
       const success = resetGame(roomCode);
       if (success) {
+        const room = getRoom(roomCode);
         log(`Game reset in room ${roomCode}`, "socket");
         io.to(roomCode).emit("game:started");
-        charlestonBotAutoSelect(roomCode);
+        if (room && room.state.config.gameMode !== "2-player") {
+          charlestonBotAutoSelect(roomCode);
+        } else {
+          handleBotTurns(io, roomCode);
+        }
         broadcastState(io, roomCode);
       }
     });

@@ -104,6 +104,7 @@ export default function GamePage() {
             onSelectPattern={selectSuggestionPattern}
             onSwapJoker={swapJoker}
             onTestSiameseWin={testSiameseWin}
+            onForfeit={forfeitGame}
           />
 
           {gameState.phase === "charleston" && gameState.charleston && (

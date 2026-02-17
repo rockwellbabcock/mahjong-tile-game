@@ -522,8 +522,13 @@ export function startGame(roomCode: string): boolean {
   room.state.winnerSeat = null;
   room.state.started = true;
 
-  room.state.charleston = createCharlestonState();
-  room.state.phase = "charleston";
+  if (room.state.config.gameMode === "2-player") {
+    room.state.phase = "draw";
+    room.state.currentTurn = "East";
+  } else {
+    room.state.charleston = createCharlestonState();
+    room.state.phase = "charleston";
+  }
 
   return true;
 }

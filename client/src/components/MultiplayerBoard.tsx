@@ -5,7 +5,7 @@ import { Tile, TileBack } from "./Tile";
 import { HintPanel } from "./HintPanel";
 import { GameTooltip } from "./GameTooltip";
 import { Button } from "@/components/ui/button";
-import { ArrowUpDown, Lightbulb, Palette, Copy, Check, Hand, WifiOff, Clock, X, Bot, Eye, ArrowLeftRight, Gem, Layers, FlaskConical, Repeat2 } from "lucide-react";
+import { ArrowUpDown, Lightbulb, Palette, Copy, Check, Hand, WifiOff, Clock, X, Bot, Eye, ArrowLeftRight, Gem, Layers, FlaskConical, Repeat2, Flag } from "lucide-react";
 import { useTileStyle } from "@/hooks/use-tile-style";
 import { useTheme } from "@/hooks/use-theme";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
@@ -70,144 +70,6 @@ function ReconnectCountdown({ timeoutAt }: { timeoutAt: number }) {
   return <span data-testid="text-reconnect-countdown">{secondsLeft}s</span>;
 }
 
-function WallSegment({ count, position }: { count: number; position: "top" | "bottom" | "left" | "right" }) {
-  const isHorizontal = position === "top" || position === "bottom";
-  const numTiles = Math.min(isHorizontal ? 18 : 10, Math.ceil(count / 4));
-
-  return (
-    <div
-      className={`flex items-center justify-center gap-px ${
-        isHorizontal ? "flex-row" : "flex-col"
-      }`}
-      data-testid={`wall-segment-${position}`}
-    >
-      {Array.from({ length: numTiles }).map((_, i) => (
-        <div
-          key={i}
-          className={`rounded-sm bg-gradient-to-b from-rose-200 to-rose-300 dark:from-rose-400/60 dark:to-rose-500/60 border border-rose-300/60 dark:border-rose-500/40 shadow-sm ${
-            isHorizontal ? "w-3 h-4 sm:w-4 sm:h-5" : "w-4 h-3 sm:w-5 sm:h-4"
-          }`}
-        />
-      ))}
-    </div>
-  );
-}
-
-function PlayerStation({
-  player,
-  position,
-  isCurrentTurn,
-  mySeat,
-  isSiamese,
-  isMyTurn,
-  gamePhase,
-  jokerSwapTarget,
-  setJokerSwapTarget,
-  onSwapJoker,
-}: {
-  player: ClientRoomView["players"][0];
-  position: "top" | "left" | "right";
-  isCurrentTurn: boolean;
-  mySeat: PlayerSeat;
-  isSiamese: boolean;
-  isMyTurn: boolean;
-  gamePhase: string;
-  jokerSwapTarget: { seat: PlayerSeat; exposureIndex: number; matchSuit: string; matchValue: string | number | null } | null;
-  setJokerSwapTarget: (v: { seat: PlayerSeat; exposureIndex: number; matchSuit: string; matchValue: string | number | null } | null) => void;
-  onSwapJoker: (myTileId: string, targetSeat: PlayerSeat, exposureIndex: number) => void;
-}) {
-  const positionClasses = {
-    top: "flex-col items-center",
-    left: "flex-col items-center",
-    right: "flex-col items-center",
-  };
-
-  return (
-    <div
-      className={`flex ${positionClasses[position]} gap-1`}
-      data-testid={`player-card-${player.seat.toLowerCase()}`}
-    >
-      <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md ${
-        isCurrentTurn
-          ? "bg-emerald-500/20 border border-emerald-400/40"
-          : "bg-black/20 border border-white/10"
-      }`}>
-        <div className={`w-2 h-2 rounded-full shrink-0 ${
-          player.connected
-            ? (player.isBot ? "bg-blue-400" : "bg-emerald-400")
-            : "bg-red-400"
-        }`} />
-        <span className="text-xs font-bold text-white/90 truncate max-w-[80px] sm:max-w-[100px]">
-          {player.name}
-        </span>
-        {player.isBot && <Bot className="w-3 h-3 text-blue-400 shrink-0" data-testid={`bot-icon-${player.seat.toLowerCase()}`} />}
-        <span className="text-[10px] text-white/60 font-mono">{player.seat}</span>
-        <span className="text-[10px] text-white/60">({getRelativePosition(mySeat, player.seat)})</span>
-      </div>
-      <div className="flex items-center gap-1 text-white/70">
-        <Hand className="w-3 h-3" />
-        <span className="text-xs font-mono">{player.handCount}</span>
-      </div>
-      {isCurrentTurn && (
-        <span className="text-[10px] font-bold text-emerald-300 uppercase animate-pulse">
-          Current Turn
-        </span>
-      )}
-      {player.exposures.length > 0 && (
-        <div className="flex items-center gap-1 flex-wrap justify-center mt-0.5" data-testid={`exposed-sets-${player.seat.toLowerCase()}`}>
-          {player.exposures.map((group, gi) => {
-            const hasJoker = group.tiles.some(t => t.suit === "Joker");
-            const nonJoker = group.tiles.find(t => !t.isJoker);
-            const canSwap = isMyTurn && (gamePhase === "draw" || gamePhase === "discard") && hasJoker;
-            const isSwapSelected = jokerSwapTarget?.seat === player.seat && jokerSwapTarget?.exposureIndex === gi;
-            return (
-              <div
-                key={gi}
-                className={`flex items-center gap-0.5 rounded-md px-1 py-0.5 ${
-                  isSwapSelected
-                    ? "bg-amber-200/50 ring-2 ring-amber-400"
-                    : canSwap
-                      ? "bg-white/10 cursor-pointer hover-elevate"
-                      : "bg-white/10"
-                }`}
-                onClick={() => {
-                  if (canSwap && nonJoker) {
-                    if (isSwapSelected) {
-                      setJokerSwapTarget(null);
-                    } else {
-                      setJokerSwapTarget({
-                        seat: player.seat,
-                        exposureIndex: gi,
-                        matchSuit: nonJoker.suit,
-                        matchValue: nonJoker.value,
-                      });
-                    }
-                  }
-                }}
-                data-testid={`exposure-group-${player.seat.toLowerCase()}-${gi}`}
-              >
-                {group.tiles.map(tile => (
-                  <div key={tile.id} className="relative">
-                    <Tile tile={tile} size="xs" />
-                    {tile.id === group.fromDiscardId && (
-                      <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-orange-400" data-testid={`discard-marker-${tile.id}`} />
-                    )}
-                    {tile.isJoker && canSwap && (
-                      <div className="absolute -top-1 -right-1 w-3 h-3 bg-amber-500 rounded-full flex items-center justify-center" data-testid={`swap-indicator-${tile.id}`}>
-                        <Repeat2 className="w-2 h-2 text-white" />
-                      </div>
-                    )}
-                  </div>
-                ))}
-                <span className="text-[9px] text-white/60 ml-0.5 capitalize">{group.claimType}</span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export function MultiplayerBoard({
   gameState,
@@ -231,6 +93,7 @@ export function MultiplayerBoard({
   onSelectPattern,
   onSwapJoker,
   onTestSiameseWin,
+  onForfeit,
 }: MultiplayerBoardProps) {
   const { tileStyle, cycleTileStyle } = useTileStyle();
   const { theme, toggleTheme } = useTheme();
@@ -238,6 +101,7 @@ export function MultiplayerBoard({
   const [transferMode, setTransferMode] = useState(false);
   const [showDiscardMobile, setShowDiscardMobile] = useState(false);
   const [jokerSwapTarget, setJokerSwapTarget] = useState<{ seat: PlayerSeat; exposureIndex: number; matchSuit: string; matchValue: string | number | null } | null>(null);
+  const [confirmForfeit, setConfirmForfeit] = useState(false);
 
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
@@ -481,6 +345,41 @@ export function MultiplayerBoard({
               <FlaskConical className="w-3 h-3" />
             </Button>
           )}
+          {onForfeit && gameState.phase !== "won" && (
+            confirmForfeit ? (
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-red-300">Forfeit?</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { onForfeit(); setConfirmForfeit(false); }}
+                  className="h-7 px-2 text-xs bg-red-900/50 border-red-600 text-red-300"
+                  data-testid="button-forfeit-confirm"
+                >
+                  Yes
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setConfirmForfeit(false)}
+                  className="h-7 px-2 text-xs bg-stone-800 border-stone-600 text-stone-300"
+                  data-testid="button-forfeit-cancel"
+                >
+                  No
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setConfirmForfeit(true)}
+                className="h-7 px-2 text-xs bg-stone-800 border-red-600/50 text-red-400/70"
+                data-testid="button-forfeit"
+              >
+                <Flag className="w-3 h-3" />
+              </Button>
+            )
+          )}
         </div>
       </div>
 
@@ -545,191 +444,393 @@ export function MultiplayerBoard({
       )}
 
       <div className="flex-1 flex flex-col min-h-0">
-        <div className="flex-1 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-700 via-emerald-800 to-emerald-900 border-4 sm:border-8 border-stone-600 shadow-inner">
-            <div className="absolute inset-0 opacity-20" style={{
-              backgroundImage: "radial-gradient(circle at 2px 2px, rgba(0,0,0,0.1) 1px, transparent 0)",
-              backgroundSize: "8px 8px",
+        <div className="flex-1 relative overflow-hidden" style={{ perspective: "900px" }}>
+          <div
+            className="absolute inset-0 bg-gradient-to-b from-emerald-900 via-emerald-800 to-emerald-700 border-4 sm:border-8 border-stone-600 shadow-inner"
+            style={{ transform: "rotateX(8deg)", transformOrigin: "center bottom" }}
+          >
+            <div className="absolute inset-0 opacity-15" style={{
+              backgroundImage: "radial-gradient(circle at 2px 2px, rgba(0,0,0,0.15) 1px, transparent 0)",
+              backgroundSize: "10px 10px",
             }} />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/5 pointer-events-none" />
 
-            <div className="absolute inset-0 flex flex-col">
-              <div className="flex justify-center pt-1 sm:pt-2">
-                <WallSegment count={Math.ceil(gameState.wallCount / 4)} position="top" />
-              </div>
-
-              <div className="flex-1 flex">
-                <div className="flex items-center pl-1 sm:pl-2">
-                  <WallSegment count={Math.ceil(gameState.wallCount / 4)} position="left" />
-                </div>
-
-                <div className="flex-1 flex flex-col items-center justify-between py-1 sm:py-2 px-2 sm:px-4 min-h-0">
-
-                  {isSiamese && opponentInfo ? (
-                    <div className="flex flex-col items-center gap-1 mt-1" data-testid="player-card-opponent">
-                      <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md ${
-                        otherPlayers.some(p => p.seat === gameState.currentTurn)
-                          ? "bg-emerald-500/20 border border-emerald-400/40"
-                          : "bg-black/20 border border-white/10"
-                      }`}>
-                        <div className={`w-2 h-2 rounded-full ${opponentInfo.main.connected ? (opponentInfo.main.isBot ? "bg-blue-400" : "bg-emerald-400") : "bg-red-400"}`} />
-                        <span className="text-xs font-bold text-white/90">{opponentInfo.main.name}</span>
-                        {opponentInfo.main.isBot && <Bot className="w-3 h-3 text-blue-400 shrink-0" data-testid="bot-icon-opponent" />}
-                      </div>
-                      <div className="flex gap-3 text-white/70">
-                        <div className="flex items-center gap-1 text-xs">
-                          <span className="text-[10px] text-white/50">R1:</span>
-                          <Hand className="w-3 h-3" />
-                          <span className="font-mono">{opponentInfo.main.handCount}</span>
-                        </div>
-                        {opponentInfo.partner && (
-                          <div className="flex items-center gap-1 text-xs">
-                            <span className="text-[10px] text-white/50">R2:</span>
-                            <Hand className="w-3 h-3" />
-                            <span className="font-mono">{opponentInfo.partner.handCount}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ) : acrossPlayer ? (
-                    <PlayerStation
-                      player={acrossPlayer}
-                      position="top"
-                      isCurrentTurn={acrossPlayer.seat === gameState.currentTurn}
-                      mySeat={gameState.mySeat}
-                      isSiamese={isSiamese}
-                      isMyTurn={isMyTurn}
-                      gamePhase={gameState.phase}
-                      jokerSwapTarget={jokerSwapTarget}
-                      setJokerSwapTarget={setJokerSwapTarget}
-                      onSwapJoker={onSwapJoker}
-                    />
-                  ) : <div />}
-
-                  <div className="flex items-center justify-between w-full flex-1 min-h-0">
-                    <div className="flex-shrink-0">
-                      {!isSiamese && leftPlayer && (
-                        <PlayerStation
-                          player={leftPlayer}
-                          position="left"
-                          isCurrentTurn={leftPlayer.seat === gameState.currentTurn}
-                          mySeat={gameState.mySeat}
-                          isSiamese={isSiamese}
-                          isMyTurn={isMyTurn}
-                          gamePhase={gameState.phase}
-                          jokerSwapTarget={jokerSwapTarget}
-                          setJokerSwapTarget={setJokerSwapTarget}
-                          onSwapJoker={onSwapJoker}
-                        />
+            <div className="absolute inset-0 flex flex-col p-1 sm:p-2">
+              {isSiamese ? (
+                <>
+                  <div className="flex justify-center pt-1" data-testid="player-card-opponent">
+                    <div className={`flex items-center gap-1.5 px-3 py-1 rounded-md ${
+                      otherPlayers.some(p => p.seat === gameState.currentTurn)
+                        ? "bg-emerald-500/20 border border-emerald-400/40"
+                        : "bg-black/30 border border-white/10"
+                    }`}>
+                      {opponentInfo && (
+                        <>
+                          <div className={`w-2 h-2 rounded-full ${opponentInfo.main.connected ? (opponentInfo.main.isBot ? "bg-blue-400" : "bg-emerald-400") : "bg-red-400"}`} />
+                          <span className="text-xs font-bold text-white/90">{opponentInfo.main.name}</span>
+                          {opponentInfo.main.isBot && <Bot className="w-3 h-3 text-blue-400 shrink-0" data-testid="bot-icon-opponent" />}
+                          <span className="text-[10px] text-white/50 ml-1">R1: {opponentInfo.main.handCount}</span>
+                          {opponentInfo.partner && <span className="text-[10px] text-white/50">R2: {opponentInfo.partner.handCount}</span>}
+                        </>
                       )}
                     </div>
+                  </div>
 
-                    <div className="flex-1 flex flex-col items-center justify-center min-h-0 px-2">
-                      <div className="flex flex-col items-center gap-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[10px] sm:text-xs font-bold text-white/50 uppercase tracking-wider">
-                            {isSiamese ? "Pool" : "Wall"}: {gameState.wallCount}
-                          </span>
-                          <span className="text-[10px] sm:text-xs text-white/30">|</span>
-                          <span className="text-[10px] sm:text-xs font-bold text-white/50 uppercase tracking-wider" data-testid="text-discard-count">
-                            Discards: {gameState.discardPile.length}
-                          </span>
-                        </div>
-                        <div
-                          className="hidden sm:flex flex-wrap gap-1 justify-center max-w-[260px] md:max-w-[320px] lg:max-w-[400px] max-h-[120px] md:max-h-[160px] overflow-y-auto p-2 bg-black/10 rounded-md"
-                          data-testid="discard-pile-list"
-                        >
-                          {gameState.discardPile.length === 0 ? (
-                            <p className="text-xs italic text-white/30">No discards yet</p>
-                          ) : (
-                            gameState.discardPile.map((tile, i) => (
-                              <motion.div
-                                key={tile.id}
-                                initial={{ opacity: 0, scale: 0.8, rotate: Math.random() * 10 - 5 }}
-                                animate={{ opacity: 1, scale: 1, rotate: Math.random() * 6 - 3 }}
-                                transition={{ duration: 0.2 }}
-                                data-testid={`discard-tile-${i}`}
-                              >
-                                <Tile tile={tile} size="xs" />
-                              </motion.div>
-                            ))
-                          )}
-                        </div>
+                  <div className="flex-1 flex items-center justify-center">
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="relative w-[180px] h-[80px] sm:w-[240px] sm:h-[100px]">
+                        {Array.from({ length: Math.min(30, gameState.wallCount) }).map((_, i) => (
+                          <div
+                            key={`pool-${i}`}
+                            className="absolute rounded-sm bg-gradient-to-b from-rose-100 to-rose-200 dark:from-rose-300/70 dark:to-rose-400/70 border border-rose-300/50 shadow-sm"
+                            style={{
+                              width: isMobile ? "14px" : "18px",
+                              height: isMobile ? "18px" : "22px",
+                              left: `${15 + (i % 8) * (isMobile ? 16 : 22) + (i > 15 ? 6 : 0)}px`,
+                              top: `${10 + Math.floor(i / 8) * (isMobile ? 20 : 26) + (i % 3) * 2}px`,
+                              transform: `rotate(${(i * 17 + i * i * 3) % 30 - 15}deg)`,
+                              zIndex: i,
+                            }}
+                          />
+                        ))}
+                      </div>
 
-                        <div
-                          className="sm:hidden flex flex-wrap gap-0.5 justify-center max-w-[200px] max-h-[60px] overflow-hidden p-1 bg-black/10 rounded-md"
-                          onClick={() => setShowDiscardMobile(true)}
-                          data-testid="discard-pile-list-mobile"
-                        >
-                          {gameState.discardPile.length === 0 ? (
-                            <p className="text-[10px] italic text-white/30">No discards</p>
-                          ) : (
-                            gameState.discardPile.slice(-8).map((tile, i) => (
-                              <div key={tile.id} className="scale-75 origin-center" data-testid={`discard-tile-mobile-preview-${i}`}>
-                                <Tile tile={tile} size="xs" />
-                              </div>
-                            ))
-                          )}
-                          {gameState.discardPile.length > 8 && (
-                            <span className="text-[9px] text-white/40">+{gameState.discardPile.length - 8}</span>
-                          )}
-                        </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] sm:text-xs font-bold text-white/50 uppercase tracking-wider">
+                          Pool: {gameState.wallCount}
+                        </span>
+                        <span className="text-[10px] sm:text-xs text-white/30">|</span>
+                        <span className="text-[10px] sm:text-xs font-bold text-white/50 uppercase tracking-wider" data-testid="text-discard-count">
+                          Discards: {gameState.discardPile.length}
+                        </span>
+                      </div>
+
+                      <div
+                        className="hidden sm:flex flex-wrap gap-0.5 justify-center max-w-[260px] md:max-w-[320px] max-h-[80px] overflow-y-auto p-1.5 bg-black/15 rounded-md"
+                        data-testid="discard-pile-list"
+                      >
+                        {gameState.discardPile.length === 0 ? (
+                          <p className="text-xs italic text-white/30">No discards yet</p>
+                        ) : (
+                          gameState.discardPile.map((tile, i) => (
+                            <motion.div
+                              key={tile.id}
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              transition={{ duration: 0.2 }}
+                              data-testid={`discard-tile-${i}`}
+                            >
+                              <Tile tile={tile} size="xs" />
+                            </motion.div>
+                          ))
+                        )}
+                      </div>
+                      <div
+                        className="sm:hidden flex flex-wrap gap-0.5 justify-center max-w-[200px] max-h-[50px] overflow-hidden p-1 bg-black/15 rounded-md"
+                        onClick={() => setShowDiscardMobile(true)}
+                        data-testid="discard-pile-list-mobile"
+                      >
+                        {gameState.discardPile.length === 0 ? (
+                          <p className="text-[10px] italic text-white/30">No discards</p>
+                        ) : (
+                          gameState.discardPile.slice(-6).map((tile, i) => (
+                            <div key={tile.id} className="scale-75 origin-center" data-testid={`discard-tile-mobile-preview-${i}`}>
+                              <Tile tile={tile} size="xs" />
+                            </div>
+                          ))
+                        )}
+                        {gameState.discardPile.length > 6 && (
+                          <span className="text-[9px] text-white/40">+{gameState.discardPile.length - 6}</span>
+                        )}
                       </div>
 
                       {isMyTurn && gameState.phase === "draw" && (
-                        <div className="mt-2">
-                          <Button
-                            onClick={() => onDraw(activeControlSeat || undefined)}
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-500 shadow-lg"
-                            data-testid="button-draw"
-                          >
-                            {isSiamese ? "Draw from Pool" : "Draw Tile"}
-                          </Button>
-                        </div>
+                        <Button
+                          onClick={() => onDraw(activeControlSeat || undefined)}
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-500 shadow-lg"
+                          data-testid="button-draw"
+                        >
+                          Draw from Pool
+                        </Button>
                       )}
-
                       {!isMyTurn && gameState.phase !== "won" && gameState.phase !== "calling" && (
-                        <p className="text-white/40 text-xs mt-1 text-center">
+                        <p className="text-white/40 text-xs text-center">
                           Waiting for {gameState.currentTurn}...
                         </p>
                       )}
                     </div>
+                  </div>
 
-                    <div className="flex-shrink-0">
-                      {!isSiamese && rightPlayer && (
-                        <PlayerStation
-                          player={rightPlayer}
-                          position="right"
-                          isCurrentTurn={rightPlayer.seat === gameState.currentTurn}
-                          mySeat={gameState.mySeat}
-                          isSiamese={isSiamese}
-                          isMyTurn={isMyTurn}
-                          gamePhase={gameState.phase}
-                          jokerSwapTarget={jokerSwapTarget}
-                          setJokerSwapTarget={setJokerSwapTarget}
-                          onSwapJoker={onSwapJoker}
-                        />
+                  <div className="flex justify-center pb-1">
+                    <div className={`flex items-center gap-1.5 px-3 py-1 rounded-md ${
+                      gameState.mySeat === gameState.currentTurn
+                        ? "bg-emerald-500/20 border border-emerald-400/40"
+                        : "bg-black/30 border border-white/10"
+                    }`}>
+                      <span className="text-xs font-bold text-white/90">
+                        {gameState.players.find(p => p.seat === gameState.mySeat)?.name || "You"}
+                      </span>
+                      <span className="text-[10px] text-white/50">{gameState.mySeat}</span>
+                      {gameState.mySeat === gameState.currentTurn && (
+                        <span className="text-[10px] font-bold text-emerald-300 uppercase animate-pulse">Your Turn</span>
                       )}
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-bold text-white/70">
-                      {gameState.players.find(p => p.seat === gameState.mySeat)?.name || "You"} ({gameState.mySeat})
-                    </span>
-                    {gameState.mySeat === gameState.currentTurn && (
-                      <span className="text-[10px] font-bold text-emerald-300 uppercase animate-pulse">Your Turn</span>
-                    )}
+                </>
+              ) : (
+                <>
+                  <div className="flex items-start">
+                    <div className="w-8 sm:w-12" />
+                    <div className="flex-1 flex justify-center">
+                      <div className="flex items-center gap-px">
+                        {Array.from({ length: Math.min(18, Math.ceil(gameState.wallCount / 4)) }).map((_, i) => (
+                          <div key={`wall-top-${i}`} className="w-3 h-4 sm:w-4 sm:h-5 rounded-sm bg-gradient-to-b from-rose-100 to-rose-200 dark:from-rose-300/60 dark:to-rose-400/60 border border-rose-300/50 shadow-sm" />
+                        ))}
+                      </div>
+                    </div>
+                    <div className="w-8 sm:w-12" />
                   </div>
-                </div>
 
-                <div className="flex items-center pr-1 sm:pr-2">
-                  <WallSegment count={Math.ceil(gameState.wallCount / 4)} position="right" />
-                </div>
-              </div>
+                  <div className="flex-1 flex min-h-0">
+                    <div className="flex flex-col items-center justify-center gap-px w-8 sm:w-12">
+                      {Array.from({ length: Math.min(8, Math.ceil(gameState.wallCount / 4)) }).map((_, i) => (
+                        <div key={`wall-left-${i}`} className="w-4 h-3 sm:w-5 sm:h-4 rounded-sm bg-gradient-to-b from-rose-100 to-rose-200 dark:from-rose-300/60 dark:to-rose-400/60 border border-rose-300/50 shadow-sm" />
+                      ))}
+                    </div>
 
-              <div className="flex justify-center pb-1 sm:pb-2">
-                <WallSegment count={Math.ceil(gameState.wallCount / 4)} position="bottom" />
-              </div>
+                    <div className="flex-1 flex flex-col items-center justify-between min-h-0 py-1">
+                      {acrossPlayer ? (
+                        <div className="flex items-start gap-2" data-testid={`player-card-${acrossPlayer.seat.toLowerCase()}`}>
+                          <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md ${
+                            acrossPlayer.seat === gameState.currentTurn
+                              ? "bg-emerald-500/20 border border-emerald-400/40"
+                              : "bg-black/30 border border-white/10"
+                          }`}>
+                            <div className={`w-2 h-2 rounded-full ${acrossPlayer.connected ? (acrossPlayer.isBot ? "bg-blue-400" : "bg-emerald-400") : "bg-red-400"}`} />
+                            <span className="text-xs font-bold text-white/90 truncate max-w-[80px]">{acrossPlayer.name}</span>
+                            {acrossPlayer.isBot && <Bot className="w-3 h-3 text-blue-400 shrink-0" />}
+                            <span className="text-[10px] text-white/50">{acrossPlayer.seat}</span>
+                            <Hand className="w-3 h-3 text-white/60" />
+                            <span className="text-[10px] text-white/60 font-mono">{acrossPlayer.handCount}</span>
+                          </div>
+                          {acrossPlayer.exposures.length > 0 && (
+                            <div className="flex flex-col gap-0.5" data-testid={`exposed-sets-${acrossPlayer.seat.toLowerCase()}`}>
+                              {acrossPlayer.exposures.map((group, gi) => {
+                                const hasJoker = group.tiles.some(t => t.suit === "Joker");
+                                const nonJoker = group.tiles.find(t => !t.isJoker);
+                                const canSwap = isMyTurn && (gameState.phase === "draw" || gameState.phase === "discard") && hasJoker;
+                                const isSwapSelected = jokerSwapTarget?.seat === acrossPlayer.seat && jokerSwapTarget?.exposureIndex === gi;
+                                return (
+                                  <div
+                                    key={gi}
+                                    className={`flex items-center gap-0.5 rounded-md px-1 py-0.5 ${isSwapSelected ? "bg-amber-200/50 ring-2 ring-amber-400" : canSwap ? "bg-white/10 cursor-pointer" : "bg-white/10"}`}
+                                    onClick={() => {
+                                      if (canSwap && nonJoker) {
+                                        setJokerSwapTarget(isSwapSelected ? null : { seat: acrossPlayer.seat, exposureIndex: gi, matchSuit: nonJoker.suit, matchValue: nonJoker.value });
+                                      }
+                                    }}
+                                    data-testid={`exposure-group-${acrossPlayer.seat.toLowerCase()}-${gi}`}
+                                  >
+                                    {group.tiles.map(tile => (
+                                      <Tile key={tile.id} tile={tile} size="xs" />
+                                    ))}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      ) : <div />}
+
+                      <div className="flex items-center justify-between w-full flex-1 min-h-0">
+                        <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                          {leftPlayer && (
+                            <>
+                              <div className={`flex items-center gap-1 px-2 py-1 rounded-md ${
+                                leftPlayer.seat === gameState.currentTurn
+                                  ? "bg-emerald-500/20 border border-emerald-400/40"
+                                  : "bg-black/30 border border-white/10"
+                              }`} data-testid={`player-card-${leftPlayer.seat.toLowerCase()}`}>
+                                <div className={`w-2 h-2 rounded-full ${leftPlayer.connected ? (leftPlayer.isBot ? "bg-blue-400" : "bg-emerald-400") : "bg-red-400"}`} />
+                                <span className="text-[10px] sm:text-xs font-bold text-white/90 truncate max-w-[60px]">{leftPlayer.name}</span>
+                                {leftPlayer.isBot && <Bot className="w-3 h-3 text-blue-400 shrink-0" />}
+                                <span className="text-[10px] text-white/50">{leftPlayer.seat}</span>
+                              </div>
+                              <span className="text-[10px] text-white/50 flex items-center gap-1"><Hand className="w-3 h-3" />{leftPlayer.handCount}</span>
+                              {leftPlayer.exposures.length > 0 && (
+                                <div className="flex flex-col gap-0.5" data-testid={`exposed-sets-${leftPlayer.seat.toLowerCase()}`}>
+                                  {leftPlayer.exposures.map((group, gi) => {
+                                    const hasJoker = group.tiles.some(t => t.suit === "Joker");
+                                    const nonJoker = group.tiles.find(t => !t.isJoker);
+                                    const canSwap = isMyTurn && (gameState.phase === "draw" || gameState.phase === "discard") && hasJoker;
+                                    const isSwapSelected = jokerSwapTarget?.seat === leftPlayer.seat && jokerSwapTarget?.exposureIndex === gi;
+                                    return (
+                                      <div
+                                        key={gi}
+                                        className={`flex items-center gap-0.5 rounded-md px-1 py-0.5 ${isSwapSelected ? "bg-amber-200/50 ring-2 ring-amber-400" : canSwap ? "bg-white/10 cursor-pointer" : "bg-white/10"}`}
+                                        onClick={() => {
+                                          if (canSwap && nonJoker) {
+                                            setJokerSwapTarget(isSwapSelected ? null : { seat: leftPlayer.seat, exposureIndex: gi, matchSuit: nonJoker.suit, matchValue: nonJoker.value });
+                                          }
+                                        }}
+                                        data-testid={`exposure-group-${leftPlayer.seat.toLowerCase()}-${gi}`}
+                                      >
+                                        {group.tiles.map(tile => (
+                                          <Tile key={tile.id} tile={tile} size="xs" />
+                                        ))}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+
+                        <div className="flex-1 flex flex-col items-center justify-center min-h-0 px-2">
+                          <div className="flex flex-col items-center gap-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-[10px] sm:text-xs font-bold text-white/50 uppercase tracking-wider">
+                                Wall: {gameState.wallCount}
+                              </span>
+                              <span className="text-[10px] sm:text-xs text-white/30">|</span>
+                              <span className="text-[10px] sm:text-xs font-bold text-white/50 uppercase tracking-wider" data-testid="text-discard-count">
+                                Discards: {gameState.discardPile.length}
+                              </span>
+                            </div>
+                            <div
+                              className="hidden sm:flex flex-wrap gap-0.5 justify-center max-w-[220px] md:max-w-[280px] lg:max-w-[360px] max-h-[100px] md:max-h-[140px] overflow-y-auto p-1.5 bg-black/15 rounded-md"
+                              data-testid="discard-pile-list"
+                            >
+                              {gameState.discardPile.length === 0 ? (
+                                <p className="text-xs italic text-white/30">No discards yet</p>
+                              ) : (
+                                gameState.discardPile.map((tile, i) => (
+                                  <motion.div
+                                    key={tile.id}
+                                    initial={{ opacity: 0, scale: 0.8 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    transition={{ duration: 0.2 }}
+                                    data-testid={`discard-tile-${i}`}
+                                  >
+                                    <Tile tile={tile} size="xs" />
+                                  </motion.div>
+                                ))
+                              )}
+                            </div>
+                            <div
+                              className="sm:hidden flex flex-wrap gap-0.5 justify-center max-w-[200px] max-h-[50px] overflow-hidden p-1 bg-black/15 rounded-md"
+                              onClick={() => setShowDiscardMobile(true)}
+                              data-testid="discard-pile-list-mobile"
+                            >
+                              {gameState.discardPile.length === 0 ? (
+                                <p className="text-[10px] italic text-white/30">No discards</p>
+                              ) : (
+                                gameState.discardPile.slice(-6).map((tile, i) => (
+                                  <div key={tile.id} className="scale-75 origin-center" data-testid={`discard-tile-mobile-preview-${i}`}>
+                                    <Tile tile={tile} size="xs" />
+                                  </div>
+                                ))
+                              )}
+                              {gameState.discardPile.length > 6 && (
+                                <span className="text-[9px] text-white/40">+{gameState.discardPile.length - 6}</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {isMyTurn && gameState.phase === "draw" && (
+                            <div className="mt-2">
+                              <Button
+                                onClick={() => onDraw(activeControlSeat || undefined)}
+                                className="bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-500 shadow-lg"
+                                data-testid="button-draw"
+                              >
+                                Draw Tile
+                              </Button>
+                            </div>
+                          )}
+                          {!isMyTurn && gameState.phase !== "won" && gameState.phase !== "calling" && (
+                            <p className="text-white/40 text-xs mt-1 text-center">
+                              Waiting for {gameState.currentTurn}...
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                          {rightPlayer && (
+                            <>
+                              <div className={`flex items-center gap-1 px-2 py-1 rounded-md ${
+                                rightPlayer.seat === gameState.currentTurn
+                                  ? "bg-emerald-500/20 border border-emerald-400/40"
+                                  : "bg-black/30 border border-white/10"
+                              }`} data-testid={`player-card-${rightPlayer.seat.toLowerCase()}`}>
+                                <div className={`w-2 h-2 rounded-full ${rightPlayer.connected ? (rightPlayer.isBot ? "bg-blue-400" : "bg-emerald-400") : "bg-red-400"}`} />
+                                <span className="text-[10px] sm:text-xs font-bold text-white/90 truncate max-w-[60px]">{rightPlayer.name}</span>
+                                {rightPlayer.isBot && <Bot className="w-3 h-3 text-blue-400 shrink-0" />}
+                                <span className="text-[10px] text-white/50">{rightPlayer.seat}</span>
+                              </div>
+                              <span className="text-[10px] text-white/50 flex items-center gap-1"><Hand className="w-3 h-3" />{rightPlayer.handCount}</span>
+                              {rightPlayer.exposures.length > 0 && (
+                                <div className="flex flex-col gap-0.5" data-testid={`exposed-sets-${rightPlayer.seat.toLowerCase()}`}>
+                                  {rightPlayer.exposures.map((group, gi) => {
+                                    const hasJoker = group.tiles.some(t => t.suit === "Joker");
+                                    const nonJoker = group.tiles.find(t => !t.isJoker);
+                                    const canSwap = isMyTurn && (gameState.phase === "draw" || gameState.phase === "discard") && hasJoker;
+                                    const isSwapSelected = jokerSwapTarget?.seat === rightPlayer.seat && jokerSwapTarget?.exposureIndex === gi;
+                                    return (
+                                      <div
+                                        key={gi}
+                                        className={`flex items-center gap-0.5 rounded-md px-1 py-0.5 ${isSwapSelected ? "bg-amber-200/50 ring-2 ring-amber-400" : canSwap ? "bg-white/10 cursor-pointer" : "bg-white/10"}`}
+                                        onClick={() => {
+                                          if (canSwap && nonJoker) {
+                                            setJokerSwapTarget(isSwapSelected ? null : { seat: rightPlayer.seat, exposureIndex: gi, matchSuit: nonJoker.suit, matchValue: nonJoker.value });
+                                          }
+                                        }}
+                                        data-testid={`exposure-group-${rightPlayer.seat.toLowerCase()}-${gi}`}
+                                      >
+                                        {group.tiles.map(tile => (
+                                          <Tile key={tile.id} tile={tile} size="xs" />
+                                        ))}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-bold text-white/70">
+                          {gameState.players.find(p => p.seat === gameState.mySeat)?.name || "You"} ({gameState.mySeat})
+                        </span>
+                        {gameState.mySeat === gameState.currentTurn && (
+                          <span className="text-[10px] font-bold text-emerald-300 uppercase animate-pulse">Your Turn</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-center justify-center gap-px w-8 sm:w-12">
+                      {Array.from({ length: Math.min(8, Math.ceil(gameState.wallCount / 4)) }).map((_, i) => (
+                        <div key={`wall-right-${i}`} className="w-4 h-3 sm:w-5 sm:h-4 rounded-sm bg-gradient-to-b from-rose-100 to-rose-200 dark:from-rose-300/60 dark:to-rose-400/60 border border-rose-300/50 shadow-sm" />
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex items-end">
+                    <div className="w-8 sm:w-12" />
+                    <div className="flex-1 flex justify-center">
+                      <div className="flex items-center gap-px">
+                        {Array.from({ length: Math.min(18, Math.ceil(gameState.wallCount / 4)) }).map((_, i) => (
+                          <div key={`wall-bottom-${i}`} className="w-3 h-4 sm:w-4 sm:h-5 rounded-sm bg-gradient-to-b from-rose-100 to-rose-200 dark:from-rose-300/60 dark:to-rose-400/60 border border-rose-300/50 shadow-sm" />
+                        ))}
+                      </div>
+                    </div>
+                    <div className="w-8 sm:w-12" />
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -836,7 +937,7 @@ export function MultiplayerBoard({
                           onDragStart={(e) => handleDragStart(e, idx)}
                           onDragEnd={handleDragEnd}
                           onDragOver={(e) => handleDragOver(e, idx)}
-                          onDrop={(e) => handleDrop(e, idx, gameState.partnerHand, partnerSeat)}
+                          onDrop={(e) => handleDrop(e, idx, gameState.partnerHand!, partnerSeat)}
                           className={`relative cursor-grab active:cursor-grabbing transition-transform duration-150 ${
                             isDragOver ? "scale-110 -translate-y-1" : ""
                           }`}
