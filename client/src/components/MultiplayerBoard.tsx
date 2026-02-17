@@ -5,7 +5,7 @@ import { Tile, TileBack } from "./Tile";
 import { HintPanel } from "./HintPanel";
 import { GameTooltip } from "./GameTooltip";
 import { Button } from "@/components/ui/button";
-import { ArrowUpDown, Lightbulb, Palette, Copy, Check, Hand, WifiOff, Clock, X, Bot, Eye, ArrowLeftRight, Gem, Layers, FlaskConical, Repeat2, Flag, Loader2 } from "lucide-react";
+import { ArrowUpDown, Lightbulb, Palette, Copy, Check, Hand, WifiOff, Clock, X, Bot, Eye, Gem, Layers, FlaskConical, Repeat2, Flag, Loader2 } from "lucide-react";
 import { useTileStyle } from "@/hooks/use-tile-style";
 import { useTheme } from "@/hooks/use-theme";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
@@ -100,7 +100,6 @@ export function MultiplayerBoard({
   const { tileStyle, cycleTileStyle } = useTileStyle();
   const { theme, toggleTheme } = useTheme();
   const [copied, setCopied] = useState(false);
-  const [transferMode, setTransferMode] = useState(false);
   const [showDiscardMobile, setShowDiscardMobile] = useState(false);
   const [jokerSwapTarget, setJokerSwapTarget] = useState<{ seat: PlayerSeat; exposureIndex: number; matchSuit: string; matchValue: string | number | null } | null>(null);
   const [confirmForfeit, setConfirmForfeit] = useState(false);
@@ -159,12 +158,15 @@ export function MultiplayerBoard({
   }
 
   const dragIndexRef = useRef<number | null>(null);
+  const [dragSourceRack, setDragSourceRack] = useState<"main" | "partner" | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [dragOverRack, setDragOverRack] = useState<"main" | "partner" | null>(null);
 
-  const handleDragStart = useCallback((e: React.DragEvent, index: number) => {
+  const handleDragStart = useCallback((e: React.DragEvent, index: number, rack: "main" | "partner") => {
     dragIndexRef.current = index;
+    setDragSourceRack(rack);
     e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", String(index));
+    e.dataTransfer.setData("text/plain", `${rack}:${index}`);
     const target = e.currentTarget as HTMLElement;
     requestAnimationFrame(() => target.style.opacity = "0.4");
   }, []);
@@ -172,29 +174,87 @@ export function MultiplayerBoard({
   const handleDragEnd = useCallback((e: React.DragEvent) => {
     (e.currentTarget as HTMLElement).style.opacity = "1";
     dragIndexRef.current = null;
+    setDragSourceRack(null);
     setDragOverIndex(null);
+    setDragOverRack(null);
   }, []);
 
-  const handleDragOver = useCallback((e: React.DragEvent, index: number) => {
+  const handleDragOver = useCallback((e: React.DragEvent, index: number, rack: "main" | "partner") => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
     setDragOverIndex(index);
+    setDragOverRack(rack);
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent, dropIndex: number, hand: TileType[], forSeat?: PlayerSeat) => {
+  const handleRackDragOver = useCallback((e: React.DragEvent, rack: "main" | "partner") => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverRack(rack);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent, dropIndex: number, hand: TileType[], forSeat?: PlayerSeat, dropRack?: "main" | "partner") => {
     e.preventDefault();
     const fromIndex = dragIndexRef.current;
-    if (fromIndex === null || fromIndex === dropIndex) {
+    const fromRack = dragSourceRack;
+
+    if (fromIndex === null) {
       setDragOverIndex(null);
+      setDragOverRack(null);
       return;
     }
-    const reordered = [...hand];
-    const [moved] = reordered.splice(fromIndex, 1);
-    reordered.splice(dropIndex, 0, moved);
-    onReorderHand(reordered.map(t => t.id), forSeat);
+
+    const isSiameseMode = !!gameState.partnerHand && gameState.mySeats.length > 1;
+    if (isSiameseMode && fromRack && dropRack && fromRack !== dropRack) {
+      const partnerSeat = gameState.mySeats.find(s => s !== gameState.mySeat);
+      if (partnerSeat) {
+        const sourceHand = fromRack === "main" ? gameState.myHand : gameState.partnerHand!;
+        const tile = sourceHand[fromIndex];
+        if (tile) {
+          const sourceSeat = fromRack === "main" ? gameState.mySeat : partnerSeat;
+          const targetSeat = fromRack === "main" ? partnerSeat : gameState.mySeat;
+          onTransfer(tile.id, sourceSeat, targetSeat);
+        }
+      }
+    } else if (fromIndex !== dropIndex) {
+      const reordered = [...hand];
+      const [moved] = reordered.splice(fromIndex, 1);
+      reordered.splice(dropIndex, 0, moved);
+      onReorderHand(reordered.map(t => t.id), forSeat);
+    }
+
     dragIndexRef.current = null;
+    setDragSourceRack(null);
     setDragOverIndex(null);
-  }, [onReorderHand]);
+    setDragOverRack(null);
+  }, [onReorderHand, onTransfer, dragSourceRack, gameState.partnerHand, gameState.mySeats, gameState.mySeat, gameState.myHand]);
+
+  const handleRackDrop = useCallback((e: React.DragEvent, dropRack: "main" | "partner") => {
+    e.preventDefault();
+    const fromIndex = dragIndexRef.current;
+    const fromRack = dragSourceRack;
+
+    if (fromIndex === null || !fromRack || fromRack === dropRack) {
+      setDragOverIndex(null);
+      setDragOverRack(null);
+      return;
+    }
+
+    const partnerSeat = gameState.mySeats.find(s => s !== gameState.mySeat);
+    if (partnerSeat) {
+      const sourceHand = fromRack === "main" ? gameState.myHand : gameState.partnerHand!;
+      const tile = sourceHand[fromIndex];
+      if (tile) {
+        const sourceSeat = fromRack === "main" ? gameState.mySeat : partnerSeat;
+        const targetSeat = fromRack === "main" ? partnerSeat : gameState.mySeat;
+        onTransfer(tile.id, sourceSeat, targetSeat);
+      }
+    }
+
+    dragIndexRef.current = null;
+    setDragSourceRack(null);
+    setDragOverIndex(null);
+    setDragOverRack(null);
+  }, [onTransfer, dragSourceRack, gameState.partnerHand, gameState.mySeats, gameState.mySeat, gameState.myHand]);
 
   const isPlayingPartner = activeControlSeat && activeControlSeat !== gameState.mySeat;
   const displayHand = isPlayingPartner && gameState.partnerHand ? gameState.partnerHand : gameState.myHand;
@@ -218,7 +278,7 @@ export function MultiplayerBoard({
     if (isMyTurn) {
       if (isSiamese) {
         if (gameState.phase === "draw") return "Your turn - draw a tile from the pool.";
-        return "Your turn - transfer tiles between racks or discard.";
+        return "Your turn - drag tiles between racks or click to discard.";
       }
       const prefix = isPlayingPartner ? `Your partner's turn (${displaySeat})` : "Your turn";
       if (gameState.phase === "draw") return `${prefix} - click Draw to pick a tile from the wall.`;
@@ -307,7 +367,7 @@ export function MultiplayerBoard({
                   ? (gameState.phase === "draw"
                     ? (isSiamese ? "Draw" : `${isPlayingPartner ? displaySeat + "'s" : "Your"} Draw`)
                     : (isSiamese
-                      ? (<><span className="sm:hidden">Discard</span><span className="hidden sm:inline">Discard / Transfer</span></>)
+                      ? "Discard"
                       : `${isPlayingPartner ? displaySeat + "'s" : "Your"} Discard`))
                   : `${gameState.currentTurn}'s turn`
             }
@@ -927,22 +987,9 @@ export function MultiplayerBoard({
           {isSiamese && gameState.partnerHand ? (
             <>
               {isMyTurn && (gameState.phase === "draw" || gameState.phase === "discard") && (
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setTransferMode(!transferMode)}
-                    className={`h-7 text-xs ${transferMode ? "bg-purple-900/50 border-purple-600 text-purple-300" : "bg-stone-800 border-stone-600 text-stone-300"}`}
-                    data-testid="button-transfer-mode"
-                  >
-                    <ArrowLeftRight className="w-3 h-3 mr-1" />
-                    {transferMode ? "Transfer On" : "Transfer"}
-                  </Button>
+                <div className="flex items-center justify-center mb-2">
                   <span className="text-[10px] text-stone-400">
-                    {transferMode
-                      ? "Click a tile to move it to your other rack"
-                      : gameState.phase === "discard" ? "Click a tile to discard" : "Draw or transfer"
-                    }
+                    {gameState.phase === "discard" ? "Click a tile to discard, or drag tiles between racks" : "Drag tiles between racks to rearrange"}
                   </span>
                 </div>
               )}
@@ -952,19 +999,27 @@ export function MultiplayerBoard({
                   <h3 className="text-[10px] font-bold text-stone-400 uppercase tracking-wider text-center mb-1" data-testid="text-hand-label">
                     Rack 1 ({gameState.myHand.length}) - {gameState.mySeat}
                   </h3>
-                  <div className="flex items-center justify-center gap-0.5 sm:gap-1 p-2 bg-stone-800/80 rounded-md border border-stone-700 flex-wrap" data-testid="hand-main">
+                  <div
+                    className={`flex items-center justify-center gap-0.5 sm:gap-1 p-2 bg-stone-800/80 rounded-md border flex-wrap transition-colors duration-150 ${
+                      dragSourceRack === "partner" && dragOverRack === "main"
+                        ? "border-purple-500 bg-purple-900/30"
+                        : "border-stone-700"
+                    }`}
+                    data-testid="hand-main"
+                    onDragOver={(e) => handleRackDragOver(e, "main")}
+                    onDrop={(e) => handleRackDrop(e, "main")}
+                  >
                     {gameState.myHand.map((tile, idx) => {
                       const isHighlighted = highlightedTileIds.has(tile.id);
-                      const partnerSeat = gameState.mySeats.find(s => s !== gameState.mySeat);
-                      const isDragOver = dragOverIndex === idx && dragIndexRef.current !== idx;
+                      const isDragOver = dragOverIndex === idx && dragOverRack === "main" && !(dragSourceRack === "main" && dragIndexRef.current === idx);
                       return (
                         <div
                           key={tile.id}
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, idx)}
+                          draggable={isMyTurn && (gameState.phase === "draw" || gameState.phase === "discard")}
+                          onDragStart={(e) => handleDragStart(e, idx, "main")}
                           onDragEnd={handleDragEnd}
-                          onDragOver={(e) => handleDragOver(e, idx)}
-                          onDrop={(e) => handleDrop(e, idx, gameState.myHand, gameState.mySeat)}
+                          onDragOver={(e) => handleDragOver(e, idx, "main")}
+                          onDrop={(e) => handleDrop(e, idx, gameState.myHand, gameState.mySeat, "main")}
                           className={`relative cursor-grab active:cursor-grabbing transition-transform duration-150 ${
                             isDragOver ? "scale-110 -translate-y-1" : ""
                           } ${
@@ -987,13 +1042,11 @@ export function MultiplayerBoard({
                             isInteractive={
                               tile.suit === "Blank" && gameState.zombieBlanks?.enabled && canZombieExchange
                                 ? true
-                                : isMyTurn && (gameState.phase === "discard" || (gameState.phase === "draw" && transferMode))
+                                : isMyTurn && gameState.phase === "discard"
                             }
                             onClick={() => {
                               if (tile.suit === "Blank" && gameState.zombieBlanks?.enabled && canZombieExchange) {
                                 setZombieBlankSelected(zombieBlankSelected === tile.id ? null : tile.id);
-                              } else if (transferMode && partnerSeat) {
-                                onTransfer(tile.id, gameState.mySeat, partnerSeat);
                               } else if (gameState.phase === "discard" && !zombieBlankSelected) {
                                 onDiscard(tile.id, gameState.mySeat);
                               }
@@ -1003,6 +1056,9 @@ export function MultiplayerBoard({
                         </div>
                       );
                     })}
+                    {gameState.myHand.length === 0 && (
+                      <div className="text-xs text-stone-500 py-4">Empty rack</div>
+                    )}
                   </div>
                 </div>
 
@@ -1010,18 +1066,27 @@ export function MultiplayerBoard({
                   <h3 className="text-[10px] font-bold text-stone-400 uppercase tracking-wider text-center mb-1" data-testid="text-partner-hand-label">
                     Rack 2 ({gameState.partnerHand.length}) - {gameState.mySeats.find(s => s !== gameState.mySeat)}
                   </h3>
-                  <div className="flex items-center justify-center gap-0.5 sm:gap-1 p-2 bg-stone-800/80 rounded-md border border-stone-700 flex-wrap" data-testid="hand-partner">
+                  <div
+                    className={`flex items-center justify-center gap-0.5 sm:gap-1 p-2 bg-stone-800/80 rounded-md border flex-wrap transition-colors duration-150 ${
+                      dragSourceRack === "main" && dragOverRack === "partner"
+                        ? "border-purple-500 bg-purple-900/30"
+                        : "border-stone-700"
+                    }`}
+                    data-testid="hand-partner"
+                    onDragOver={(e) => handleRackDragOver(e, "partner")}
+                    onDrop={(e) => handleRackDrop(e, "partner")}
+                  >
                     {gameState.partnerHand.map((tile, idx) => {
                       const partnerSeat = gameState.mySeats.find(s => s !== gameState.mySeat)!;
-                      const isDragOver = dragOverIndex === idx && dragIndexRef.current !== idx;
+                      const isDragOver = dragOverIndex === idx && dragOverRack === "partner" && !(dragSourceRack === "partner" && dragIndexRef.current === idx);
                       return (
                         <div
                           key={tile.id}
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, idx)}
+                          draggable={isMyTurn && (gameState.phase === "draw" || gameState.phase === "discard")}
+                          onDragStart={(e) => handleDragStart(e, idx, "partner")}
                           onDragEnd={handleDragEnd}
-                          onDragOver={(e) => handleDragOver(e, idx)}
-                          onDrop={(e) => handleDrop(e, idx, gameState.partnerHand!, partnerSeat)}
+                          onDragOver={(e) => handleDragOver(e, idx, "partner")}
+                          onDrop={(e) => handleDrop(e, idx, gameState.partnerHand!, partnerSeat, "partner")}
                           className={`relative cursor-grab active:cursor-grabbing transition-transform duration-150 ${
                             isDragOver ? "scale-110 -translate-y-1" : ""
                           } ${
@@ -1042,13 +1107,11 @@ export function MultiplayerBoard({
                             isInteractive={
                               tile.suit === "Blank" && gameState.zombieBlanks?.enabled && canZombieExchange
                                 ? true
-                                : isMyTurn && (gameState.phase === "discard" || (gameState.phase === "draw" && transferMode))
+                                : isMyTurn && gameState.phase === "discard"
                             }
                             onClick={() => {
                               if (tile.suit === "Blank" && gameState.zombieBlanks?.enabled && canZombieExchange) {
                                 setZombieBlankSelected(zombieBlankSelected === tile.id ? null : tile.id);
-                              } else if (transferMode) {
-                                onTransfer(tile.id, partnerSeat, gameState.mySeat);
                               } else if (gameState.phase === "discard" && !zombieBlankSelected) {
                                 onDiscard(tile.id, partnerSeat);
                               }
@@ -1058,6 +1121,9 @@ export function MultiplayerBoard({
                         </div>
                       );
                     })}
+                    {gameState.partnerHand.length === 0 && (
+                      <div className="text-xs text-stone-500 py-4">Empty rack</div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1130,10 +1196,10 @@ export function MultiplayerBoard({
                       <div
                         key={tile.id}
                         draggable
-                        onDragStart={(e) => handleDragStart(e, idx)}
+                        onDragStart={(e) => handleDragStart(e, idx, "main")}
                         onDragEnd={handleDragEnd}
-                        onDragOver={(e) => handleDragOver(e, idx)}
-                        onDrop={(e) => handleDrop(e, idx, displayHand, activeControlSeat || undefined)}
+                        onDragOver={(e) => handleDragOver(e, idx, "main")}
+                        onDrop={(e) => handleDrop(e, idx, displayHand, activeControlSeat || undefined, "main")}
                         className={`relative cursor-grab active:cursor-grabbing transition-transform duration-150 ${
                           isDragOver ? "scale-110 -translate-y-1" : ""
                         } ${
