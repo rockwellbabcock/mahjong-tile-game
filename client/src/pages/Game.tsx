@@ -43,6 +43,9 @@ export default function GamePage() {
     charlestonReady,
     charlestonSkip,
     charlestonVote,
+    courtesyPassCount,
+    courtesyPassSelect,
+    courtesyPassReady,
     claimDiscardTile,
     passOnDiscardTile,
     swapJoker,
@@ -136,6 +139,9 @@ export default function GamePage() {
               onReady={charlestonReady}
               onSkip={charlestonSkip}
               onVote={charlestonVote}
+              onCourtesyCount={courtesyPassCount}
+              onCourtesySelect={courtesyPassSelect}
+              onCourtesyReady={courtesyPassReady}
             />
           )}
 

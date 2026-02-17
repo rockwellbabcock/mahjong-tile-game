@@ -300,6 +300,18 @@ export function useMultiplayerGame() {
     socketRef.current?.emit("game:charleston-vote", { accept });
   }, []);
 
+  const courtesyPassCount = useCallback((count: number) => {
+    socketRef.current?.emit("game:courtesy-count", { count });
+  }, []);
+
+  const courtesyPassSelect = useCallback((tileId: string) => {
+    socketRef.current?.emit("game:courtesy-select", { tileId });
+  }, []);
+
+  const courtesyPassReady = useCallback(() => {
+    socketRef.current?.emit("game:courtesy-ready");
+  }, []);
+
   const claimDiscardTile = useCallback((claimType: "pung" | "kong" | "quint" | "mahjong", tileIds: string[]) => {
     socketRef.current?.emit("game:claim", { claimType, tileIds });
   }, []);
@@ -382,6 +394,9 @@ export function useMultiplayerGame() {
     charlestonReady,
     charlestonSkip,
     charlestonVote,
+    courtesyPassCount,
+    courtesyPassSelect,
+    courtesyPassReady,
     claimDiscardTile,
     passOnDiscardTile,
     swapJoker,

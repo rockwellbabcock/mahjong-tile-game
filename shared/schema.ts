@@ -41,6 +41,15 @@ export type GameMode = "4-player" | "2-player";
 
 export type CharlestonDirection = "right" | "across" | "left";
 
+export interface CourtesyPassState {
+  step: "choose-count" | "choose-tiles" | "done";
+  counts: Partial<Record<PlayerSeat, number>>;
+  resolvedCounts: Partial<Record<string, number>>;
+  selections: Partial<Record<PlayerSeat, string[]>>;
+  readyPlayers: PlayerSeat[];
+  timeoutAt: number;
+}
+
 export interface CharlestonState {
   round: 1 | 2;
   passIndex: number;
@@ -50,6 +59,7 @@ export interface CharlestonState {
   secondCharlestonOffered: boolean;
   secondCharlestonVotes: Partial<Record<PlayerSeat, boolean>>;
   skipped: boolean;
+  courtesyPass?: CourtesyPassState;
 }
 
 export interface PendingClaim {
@@ -145,6 +155,18 @@ export interface RoomState {
   playAgain?: PlayAgainState;
 }
 
+export interface ClientCourtesyPassView {
+  step: "choose-count" | "choose-tiles" | "done";
+  myCount?: number;
+  resolvedCount?: number;
+  opponentName: string;
+  opponentSeat: PlayerSeat;
+  mySelectedTileIds: string[];
+  myReady: boolean;
+  bothChosen: boolean;
+  timeoutAt: number;
+}
+
 export interface ClientCharlestonView {
   round: 1 | 2;
   passIndex: number;
@@ -156,6 +178,7 @@ export interface ClientCharlestonView {
   secondCharlestonOffered: boolean;
   mySecondVote?: boolean;
   skipped: boolean;
+  courtesyPass?: ClientCourtesyPassView;
 }
 
 export interface ClientRoomView {
@@ -243,4 +266,7 @@ export interface ClientToServerEvents {
   "game:charleston-ready": () => void;
   "game:charleston-skip": () => void;
   "game:charleston-vote": (data: { accept: boolean }) => void;
+  "game:courtesy-count": (data: { count: number }) => void;
+  "game:courtesy-select": (data: { tileId: string }) => void;
+  "game:courtesy-ready": () => void;
 }

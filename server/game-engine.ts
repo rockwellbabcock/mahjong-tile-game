@@ -1,10 +1,11 @@
-import { type Tile, type Suit, type TileValue, type PlayerSeat, type PlayerState, type RoomState, type ClientRoomView, type ClientCharlestonView, type ClientCallingView, type ClientPlayAgainView, type DisconnectedPlayerInfo, type RoomConfig, type GameMode, type CharlestonState, type CharlestonDirection, type CallingState, type PendingClaim, type ClaimType, type ZombieBlanksConfig, type DeadHandStatus, type DeadHandReason, type PlayAgainState, SEAT_ORDER } from "@shared/schema";
+import { type Tile, type Suit, type TileValue, type PlayerSeat, type PlayerState, type RoomState, type ClientRoomView, type ClientCharlestonView, type ClientCallingView, type ClientPlayAgainView, type ClientCourtesyPassView, type DisconnectedPlayerInfo, type RoomConfig, type GameMode, type CharlestonState, type CharlestonDirection, type CourtesyPassState, type CallingState, type PendingClaim, type ClaimType, type ZombieBlanksConfig, type DeadHandStatus, type DeadHandReason, type PlayAgainState, SEAT_ORDER } from "@shared/schema";
 import { checkForWin, checkAllPatterns } from "@shared/patterns";
 
 const RECONNECT_TIMEOUT_MS = 60_000;
 const BOT_TURN_DELAY_MS = 2_000;
 const BOT_DECISION_TIMEOUT_MS = 10_000;
 const PLAY_AGAIN_TIMEOUT_MS = 90_000;
+const COURTESY_PASS_TIMEOUT_MS = 30_000;
 const SUITS: Suit[] = ["Bam", "Crak", "Dot"];
 const WINDS: TileValue[] = ["East", "South", "West", "North"];
 const DRAGONS: TileValue[] = ["Red", "Green", "White"];
@@ -679,7 +680,7 @@ export function executeCharlestonPass(roomCode: string): boolean {
   }
 
   if (nextPassIndex >= 6 || (charleston.round === 2 && nextPassIndex >= 6)) {
-    endCharleston(room);
+    startCourtesyPass(room);
     return true;
   }
 
@@ -730,7 +731,7 @@ export function charlestonVote(roomCode: string, playerId: string, accept: boole
     charleston.secondCharlestonVotes = {};
     return { success: true, decided: true, accepted: true };
   } else {
-    endCharleston(room);
+    startCourtesyPass(room);
     return { success: true, decided: true, accepted: false };
   }
 }
@@ -740,7 +741,7 @@ export function charlestonSkip(roomCode: string, playerId: string): boolean {
   if (!room || !room.state.charleston) return false;
   if (room.state.phase !== "charleston") return false;
 
-  endCharleston(room);
+  startCourtesyPass(room);
   return true;
 }
 
@@ -748,6 +749,296 @@ function endCharleston(room: GameRoom): void {
   room.state.phase = "draw";
   room.state.currentTurn = "East";
   room.state.charleston = undefined;
+}
+
+function getAcrossSeat(seat: PlayerSeat): PlayerSeat {
+  const idx = SEAT_ORDER.indexOf(seat);
+  return SEAT_ORDER[(idx + 2) % 4];
+}
+
+function getCourtesyPairKey(a: PlayerSeat, b: PlayerSeat): string {
+  const sorted = [a, b].sort();
+  return `${sorted[0]}-${sorted[1]}`;
+}
+
+export function startCourtesyPass(room: GameRoom): void {
+  if (!room.state.charleston) {
+    room.state.charleston = createCharlestonState();
+  }
+  room.state.charleston.courtesyPass = {
+    step: "choose-count",
+    counts: {},
+    resolvedCounts: {},
+    selections: {},
+    readyPlayers: [],
+    timeoutAt: Date.now() + COURTESY_PASS_TIMEOUT_MS,
+  };
+}
+
+export function courtesyPassSetCount(
+  roomCode: string,
+  playerId: string,
+  count: number
+): { success: boolean; allChosen?: boolean; error?: string } {
+  const room = rooms.get(roomCode);
+  if (!room) return { success: false, error: "Room not found" };
+  if (room.state.phase !== "charleston") return { success: false, error: "Not in Charleston phase" };
+  if (!room.state.charleston?.courtesyPass) return { success: false, error: "No courtesy pass active" };
+  if (room.state.charleston.courtesyPass.step !== "choose-count") return { success: false, error: "Not in count selection step" };
+
+  const player = room.state.players.find(p => p.id === playerId);
+  if (!player) return { success: false, error: "Player not found" };
+
+  if (count < 0 || count > 3 || !Number.isInteger(count)) return { success: false, error: "Count must be 0, 1, 2, or 3" };
+
+  const courtesy = room.state.charleston.courtesyPass;
+  courtesy.counts[player.seat] = count;
+
+  const allSeats = room.state.players.map(p => p.seat);
+  const allChosen = allSeats.every(s => courtesy.counts[s] !== undefined);
+
+  if (allChosen) {
+    resolveCourtesyCounts(room);
+  }
+
+  return { success: true, allChosen };
+}
+
+function resolveCourtesyCounts(room: GameRoom): void {
+  const courtesy = room.state.charleston!.courtesyPass!;
+  const pairs: [PlayerSeat, PlayerSeat][] = [["East", "West"], ["North", "South"]];
+
+  let anyPass = false;
+  for (const [a, b] of pairs) {
+    const countA = courtesy.counts[a] ?? 0;
+    const countB = courtesy.counts[b] ?? 0;
+    const resolved = Math.min(countA, countB);
+    const key = getCourtesyPairKey(a, b);
+    courtesy.resolvedCounts[key] = resolved;
+    if (resolved > 0) anyPass = true;
+  }
+
+  if (anyPass) {
+    courtesy.step = "choose-tiles";
+    courtesy.timeoutAt = Date.now() + COURTESY_PASS_TIMEOUT_MS;
+    for (const p of room.state.players) {
+      const across = getAcrossSeat(p.seat);
+      const key = getCourtesyPairKey(p.seat, across);
+      const resolvedCount = courtesy.resolvedCounts[key] ?? 0;
+      if (resolvedCount === 0) {
+        courtesy.readyPlayers.push(p.seat);
+      }
+    }
+  } else {
+    courtesy.step = "done";
+    endCharleston(room);
+  }
+}
+
+export function courtesyPassSelectTile(
+  roomCode: string,
+  playerId: string,
+  tileId: string
+): { success: boolean; error?: string } {
+  const room = rooms.get(roomCode);
+  if (!room) return { success: false, error: "Room not found" };
+  if (!room.state.charleston?.courtesyPass) return { success: false, error: "No courtesy pass active" };
+  if (room.state.charleston.courtesyPass.step !== "choose-tiles") return { success: false, error: "Not in tile selection step" };
+
+  const player = room.state.players.find(p => p.id === playerId);
+  if (!player) return { success: false, error: "Player not found" };
+
+  const courtesy = room.state.charleston.courtesyPass;
+  if (courtesy.readyPlayers.includes(player.seat)) return { success: false, error: "Already submitted" };
+
+  const across = getAcrossSeat(player.seat);
+  const key = getCourtesyPairKey(player.seat, across);
+  const resolvedCount = courtesy.resolvedCounts[key] ?? 0;
+  if (resolvedCount === 0) return { success: false, error: "No tiles to pass in your pair" };
+
+  const selected = courtesy.selections[player.seat] || [];
+  const idx = selected.indexOf(tileId);
+  if (idx >= 0) {
+    selected.splice(idx, 1);
+  } else {
+    if (selected.length >= resolvedCount) return { success: false, error: `Can only select ${resolvedCount} tiles` };
+    const hasTile = player.hand.some(t => t.id === tileId);
+    if (!hasTile) return { success: false, error: "Tile not in hand" };
+    selected.push(tileId);
+  }
+  courtesy.selections[player.seat] = selected;
+  return { success: true };
+}
+
+export function courtesyPassReady(
+  roomCode: string,
+  playerId: string
+): { success: boolean; allReady?: boolean; error?: string } {
+  const room = rooms.get(roomCode);
+  if (!room) return { success: false, error: "Room not found" };
+  if (!room.state.charleston?.courtesyPass) return { success: false, error: "No courtesy pass active" };
+  if (room.state.charleston.courtesyPass.step !== "choose-tiles") return { success: false, error: "Not in tile selection step" };
+
+  const player = room.state.players.find(p => p.id === playerId);
+  if (!player) return { success: false, error: "Player not found" };
+
+  const courtesy = room.state.charleston.courtesyPass;
+  if (courtesy.readyPlayers.includes(player.seat)) return { success: false, error: "Already ready" };
+
+  const across = getAcrossSeat(player.seat);
+  const key = getCourtesyPairKey(player.seat, across);
+  const resolvedCount = courtesy.resolvedCounts[key] ?? 0;
+  const selected = courtesy.selections[player.seat] || [];
+  if (selected.length !== resolvedCount) return { success: false, error: `Must select exactly ${resolvedCount} tiles` };
+
+  courtesy.readyPlayers.push(player.seat);
+
+  const allSeats = room.state.players.map(p => p.seat);
+  const allReady = allSeats.every(s => courtesy.readyPlayers.includes(s));
+
+  return { success: true, allReady };
+}
+
+export function executeCourtesyPass(roomCode: string): boolean {
+  const room = rooms.get(roomCode);
+  if (!room || !room.state.charleston?.courtesyPass) return false;
+
+  const courtesy = room.state.charleston.courtesyPass;
+  const pairs: [PlayerSeat, PlayerSeat][] = [["East", "West"], ["North", "South"]];
+
+  for (const [seatA, seatB] of pairs) {
+    const key = getCourtesyPairKey(seatA, seatB);
+    const count = courtesy.resolvedCounts[key] ?? 0;
+    if (count === 0) continue;
+
+    const playerA = room.state.players.find(p => p.seat === seatA);
+    const playerB = room.state.players.find(p => p.seat === seatB);
+    if (!playerA || !playerB) continue;
+
+    const tilesFromA: Tile[] = [];
+    const selectedA = courtesy.selections[seatA] || [];
+    for (const id of selectedA) {
+      const idx = playerA.hand.findIndex(t => t.id === id);
+      if (idx >= 0) {
+        tilesFromA.push(playerA.hand[idx]);
+        playerA.hand.splice(idx, 1);
+      }
+    }
+
+    const tilesFromB: Tile[] = [];
+    const selectedB = courtesy.selections[seatB] || [];
+    for (const id of selectedB) {
+      const idx = playerB.hand.findIndex(t => t.id === id);
+      if (idx >= 0) {
+        tilesFromB.push(playerB.hand[idx]);
+        playerB.hand.splice(idx, 1);
+      }
+    }
+
+    playerA.hand.push(...tilesFromB);
+    playerA.hand.sort(compareTiles);
+    playerB.hand.push(...tilesFromA);
+    playerB.hand.sort(compareTiles);
+  }
+
+  endCharleston(room);
+  return true;
+}
+
+export function courtesyPassTimeout(roomCode: string): void {
+  const room = rooms.get(roomCode);
+  if (!room || !room.state.charleston?.courtesyPass) return;
+
+  const courtesy = room.state.charleston.courtesyPass;
+
+  if (courtesy.step === "choose-count") {
+    for (const p of room.state.players) {
+      if (courtesy.counts[p.seat] === undefined) {
+        courtesy.counts[p.seat] = 0;
+      }
+    }
+    resolveCourtesyCounts(room);
+    if (room.state.phase === "charleston" && room.state.charleston?.courtesyPass?.step === "choose-tiles") {
+      courtesyPassTimeout(roomCode);
+    }
+  } else if (courtesy.step === "choose-tiles") {
+    for (const p of room.state.players) {
+      if (!courtesy.readyPlayers.includes(p.seat)) {
+        const across = getAcrossSeat(p.seat);
+        const key = getCourtesyPairKey(p.seat, across);
+        const resolvedCount = courtesy.resolvedCounts[key] ?? 0;
+        if (resolvedCount === 0) {
+          courtesy.readyPlayers.push(p.seat);
+        } else {
+          courtesy.selections[p.seat] = [];
+          courtesy.resolvedCounts[key] = 0;
+          const acrossSeat = getAcrossSeat(p.seat);
+          courtesy.selections[acrossSeat] = [];
+          courtesy.readyPlayers.push(p.seat);
+          if (!courtesy.readyPlayers.includes(acrossSeat)) {
+            courtesy.readyPlayers.push(acrossSeat);
+          }
+        }
+      }
+    }
+    executeCourtesyPass(roomCode);
+  }
+}
+
+export function courtesyBotDecision(roomCode: string): void {
+  const room = rooms.get(roomCode);
+  if (!room || !room.state.charleston?.courtesyPass) return;
+
+  const courtesy = room.state.charleston.courtesyPass;
+
+  for (const p of room.state.players) {
+    if (!p.isBot) continue;
+
+    if (courtesy.step === "choose-count" && courtesy.counts[p.seat] === undefined) {
+      const hand = p.hand;
+      const patterns = checkAllPatterns(hand);
+      const bestPattern = patterns.length > 0 ? patterns[0] : null;
+
+      let botCount = 0;
+      if (bestPattern && bestPattern.tilesAway <= 3) {
+        const contributingIds = new Set(bestPattern.contributingTileIds || []);
+        const uselessTiles = hand.filter(t => !contributingIds.has(t.id));
+        botCount = Math.min(uselessTiles.length, Math.floor(Math.random() * 3) + 1);
+        botCount = Math.min(botCount, 3);
+      } else {
+        botCount = Math.min(hand.length, Math.floor(Math.random() * 2) + 1);
+        botCount = Math.min(botCount, 3);
+      }
+      courtesy.counts[p.seat] = botCount;
+    }
+
+    if (courtesy.step === "choose-tiles" && !courtesy.readyPlayers.includes(p.seat)) {
+      const across = getAcrossSeat(p.seat);
+      const key = getCourtesyPairKey(p.seat, across);
+      const resolvedCount = courtesy.resolvedCounts[key] ?? 0;
+      if (resolvedCount === 0) {
+        courtesy.readyPlayers.push(p.seat);
+        continue;
+      }
+
+      const hand = p.hand;
+      const patterns = checkAllPatterns(hand);
+      const bestPattern = patterns.length > 0 ? patterns[0] : null;
+      const contributingIds = new Set(bestPattern?.contributingTileIds || []);
+      const uselessTiles = hand.filter(t => !contributingIds.has(t.id));
+      uselessTiles.sort(compareTiles);
+      const toPass = uselessTiles.slice(0, resolvedCount).map(t => t.id);
+      if (toPass.length < resolvedCount) {
+        const remaining = hand.filter(t => !toPass.includes(t.id));
+        remaining.sort(compareTiles);
+        while (toPass.length < resolvedCount && remaining.length > 0) {
+          toPass.push(remaining.shift()!.id);
+        }
+      }
+      courtesy.selections[p.seat] = toPass;
+      courtesy.readyPlayers.push(p.seat);
+    }
+  }
 }
 
 export function charlestonBotAutoSelect(roomCode: string): void {
@@ -1001,7 +1292,7 @@ export function getClientView(room: GameRoom, playerId: string): ClientRoomView 
     gameMode: room.state.config.gameMode,
     zombieBlanks: room.state.config.zombieBlanks?.enabled ? room.state.config.zombieBlanks : undefined,
     partnerHand,
-    charleston: room.state.charleston ? getCharlestonView(room.state.charleston, player.seat) : undefined,
+    charleston: room.state.charleston ? getCharlestonView(room.state.charleston, player.seat, room.state.players) : undefined,
     callingState: room.state.callingState ? getCallingView(room.state.callingState, player.seat, playerId) : undefined,
     playAgain: getPlayAgainView(room, playerId),
   };
@@ -1018,8 +1309,8 @@ function getCallingView(calling: CallingState, mySeat: PlayerSeat, playerId: str
   };
 }
 
-function getCharlestonView(charleston: CharlestonState, mySeat: PlayerSeat): ClientCharlestonView {
-  return {
+function getCharlestonView(charleston: CharlestonState, mySeat: PlayerSeat, players: PlayerState[]): ClientCharlestonView {
+  const base: ClientCharlestonView = {
     round: charleston.round,
     passIndex: charleston.passIndex,
     direction: charleston.direction,
@@ -1031,6 +1322,29 @@ function getCharlestonView(charleston: CharlestonState, mySeat: PlayerSeat): Cli
     mySecondVote: charleston.secondCharlestonVotes[mySeat],
     skipped: charleston.skipped,
   };
+
+  if (charleston.courtesyPass) {
+    const cp = charleston.courtesyPass;
+    const acrossSeat = getAcrossSeat(mySeat);
+    const opponent = players.find(p => p.seat === acrossSeat);
+    const key = getCourtesyPairKey(mySeat, acrossSeat);
+    const allSeats = players.map(p => p.seat);
+    const bothChosen = allSeats.every(s => cp.counts[s] !== undefined);
+
+    base.courtesyPass = {
+      step: cp.step,
+      myCount: cp.counts[mySeat],
+      resolvedCount: cp.resolvedCounts[key],
+      opponentName: opponent?.name || "Opponent",
+      opponentSeat: acrossSeat,
+      mySelectedTileIds: cp.selections[mySeat] || [],
+      myReady: cp.readyPlayers.includes(mySeat),
+      bothChosen,
+      timeoutAt: cp.timeoutAt,
+    };
+  }
+
+  return base;
 }
 
 export function checkWinForPlayer(roomCode: string, playerId: string, forSeat?: PlayerSeat): {

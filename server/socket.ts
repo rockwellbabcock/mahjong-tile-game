@@ -36,6 +36,13 @@ import {
   executeCharlestonPass,
   charlestonBotAutoSelect,
   charlestonBotVote,
+  courtesyPassSetCount,
+  courtesyPassSelectTile,
+  courtesyPassReady,
+  executeCourtesyPass,
+  courtesyPassTimeout,
+  courtesyBotDecision,
+  startCourtesyPass,
   claimDiscard,
   passOnDiscard,
   isCallingComplete,
@@ -54,6 +61,52 @@ type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 
 const playerRooms = new Map<string, string>();
 const playAgainTimers = new Map<string, NodeJS.Timeout>();
+const courtesyPassTimers = new Map<string, NodeJS.Timeout>();
+
+function startCourtesyPassFlow(io: Server<ClientToServerEvents, ServerToClientEvents>, roomCode: string) {
+  const existingTimer = courtesyPassTimers.get(roomCode);
+  if (existingTimer) clearTimeout(existingTimer);
+
+  const room = getRoom(roomCode);
+  if (!room || !room.state.charleston?.courtesyPass) return;
+
+  courtesyBotDecision(roomCode);
+
+  const cp = room.state.charleston.courtesyPass;
+  const allSeats = room.state.players.map(p => p.seat);
+  const allChosen = allSeats.every(s => cp.counts[s] !== undefined);
+
+  if (allChosen && cp.step === "choose-tiles") {
+    courtesyBotDecision(roomCode);
+    const allReady = allSeats.every(s => cp.readyPlayers.includes(s));
+    if (allReady) {
+      executeCourtesyPass(roomCode);
+      broadcastState(io, roomCode);
+      handleBotTurns(io, roomCode);
+      return;
+    }
+  } else if (allChosen && room.state.phase === "draw") {
+    broadcastState(io, roomCode);
+    handleBotTurns(io, roomCode);
+    return;
+  }
+
+  broadcastState(io, roomCode);
+
+  const timer = setTimeout(() => {
+    courtesyPassTimers.delete(roomCode);
+    const timeoutRoom = getRoom(roomCode);
+    if (!timeoutRoom || !timeoutRoom.state.charleston?.courtesyPass) return;
+    if (timeoutRoom.state.charleston.courtesyPass.step === "done") return;
+
+    log(`Courtesy pass timed out in room ${roomCode}`, "socket");
+    courtesyPassTimeout(roomCode);
+    broadcastState(io, roomCode);
+    handleBotTurns(io, roomCode);
+  }, 30_000);
+
+  courtesyPassTimers.set(roomCode, timer);
+}
 
 function startPlayAgainVoting(io: Server<ClientToServerEvents, ServerToClientEvents>, roomCode: string) {
   const existing = playAgainTimers.get(roomCode);
@@ -590,6 +643,10 @@ export function setupSocket(httpServer: HttpServer): Server<ClientToServerEvents
       if (result.allReady) {
         executeCharlestonPass(roomCode);
         const room = getRoom(roomCode);
+        if (room && room.state.phase === "charleston" && room.state.charleston?.courtesyPass) {
+          startCourtesyPassFlow(io, roomCode);
+          return;
+        }
         if (room && room.state.phase === "charleston" && room.state.charleston?.secondCharlestonOffered) {
           charlestonBotVote(roomCode);
           const humanSeats = room.state.players.filter(p => !p.isBot && !p.controlledBy);
@@ -597,7 +654,7 @@ export function setupSocket(httpServer: HttpServer): Server<ClientToServerEvents
             charlestonVote(roomCode, room.state.players[0].id, true);
           }
         }
-        if (room && room.state.phase === "charleston" && !room.state.charleston?.secondCharlestonOffered) {
+        if (room && room.state.phase === "charleston" && !room.state.charleston?.secondCharlestonOffered && !room.state.charleston?.courtesyPass) {
           charlestonBotAutoSelect(roomCode);
         }
         if (room && room.state.phase === "draw") {
@@ -615,8 +672,13 @@ export function setupSocket(httpServer: HttpServer): Server<ClientToServerEvents
       const success = charlestonSkip(roomCode, socket.id);
       if (success) {
         log(`Charleston skipped in room ${roomCode}`, "socket");
-        broadcastState(io, roomCode);
-        handleBotTurns(io, roomCode);
+        const room = getRoom(roomCode);
+        if (room && room.state.charleston?.courtesyPass) {
+          startCourtesyPassFlow(io, roomCode);
+        } else {
+          broadcastState(io, roomCode);
+          handleBotTurns(io, roomCode);
+        }
       }
     });
 
@@ -634,7 +696,103 @@ export function setupSocket(httpServer: HttpServer): Server<ClientToServerEvents
         if (result.accepted) {
           charlestonBotAutoSelect(roomCode);
         } else {
+          const room = getRoom(roomCode);
+          if (room && room.state.charleston?.courtesyPass) {
+            startCourtesyPassFlow(io, roomCode);
+            return;
+          }
           handleBotTurns(io, roomCode);
+        }
+      }
+
+      broadcastState(io, roomCode);
+    });
+
+    socket.on("game:courtesy-count", ({ count }: { count: number }) => {
+      const roomCode = playerRooms.get(socket.id);
+      if (!roomCode) return;
+
+      const result = courtesyPassSetCount(roomCode, socket.id, count);
+      if (!result.success) {
+        socket.emit("error", { message: result.error || "Cannot set courtesy pass count" });
+        return;
+      }
+
+      const room = getRoom(roomCode);
+      if (room && room.state.charleston?.courtesyPass) {
+        const cp = room.state.charleston.courtesyPass;
+        const allSeats = room.state.players.map(p => p.seat);
+        const allChosen = allSeats.every(s => cp.counts[s] !== undefined);
+
+        if (allChosen && cp.step === "choose-tiles") {
+          courtesyBotDecision(roomCode);
+          const cpAfter = room.state.charleston?.courtesyPass;
+          const allReady = cpAfter && allSeats.every(s => cpAfter.readyPlayers.includes(s));
+          if (allReady) {
+            const existingTimer = courtesyPassTimers.get(roomCode);
+            if (existingTimer) clearTimeout(existingTimer);
+            courtesyPassTimers.delete(roomCode);
+            executeCourtesyPass(roomCode);
+            broadcastState(io, roomCode);
+            handleBotTurns(io, roomCode);
+            return;
+          }
+        } else if (allChosen && cp.step === "done") {
+          const existingTimer = courtesyPassTimers.get(roomCode);
+          if (existingTimer) clearTimeout(existingTimer);
+          courtesyPassTimers.delete(roomCode);
+          broadcastState(io, roomCode);
+          handleBotTurns(io, roomCode);
+          return;
+        }
+      } else if (room && room.state.phase === "draw") {
+        const existingTimer = courtesyPassTimers.get(roomCode);
+        if (existingTimer) clearTimeout(existingTimer);
+        courtesyPassTimers.delete(roomCode);
+        broadcastState(io, roomCode);
+        handleBotTurns(io, roomCode);
+        return;
+      }
+
+      broadcastState(io, roomCode);
+    });
+
+    socket.on("game:courtesy-select", ({ tileId }: { tileId: string }) => {
+      const roomCode = playerRooms.get(socket.id);
+      if (!roomCode) return;
+
+      const result = courtesyPassSelectTile(roomCode, socket.id, tileId);
+      if (!result.success) {
+        socket.emit("error", { message: result.error || "Cannot select tile for courtesy pass" });
+        return;
+      }
+
+      broadcastState(io, roomCode);
+    });
+
+    socket.on("game:courtesy-ready", () => {
+      const roomCode = playerRooms.get(socket.id);
+      if (!roomCode) return;
+
+      const result = courtesyPassReady(roomCode, socket.id);
+      if (!result.success) {
+        socket.emit("error", { message: result.error || "Cannot mark ready for courtesy pass" });
+        return;
+      }
+
+      const room = getRoom(roomCode);
+      if (room && room.state.charleston?.courtesyPass) {
+        const cp = room.state.charleston.courtesyPass;
+        const allSeats = room.state.players.map(p => p.seat);
+        const allReady = allSeats.every(s => cp.readyPlayers.includes(s));
+        if (allReady) {
+          const existingTimer = courtesyPassTimers.get(roomCode);
+          if (existingTimer) clearTimeout(existingTimer);
+          courtesyPassTimers.delete(roomCode);
+          executeCourtesyPass(roomCode);
+          broadcastState(io, roomCode);
+          handleBotTurns(io, roomCode);
+          return;
         }
       }
 
