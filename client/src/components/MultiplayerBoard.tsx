@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowUpDown, Lightbulb, Palette, Copy, Check, Hand, WifiOff, Clock, X, Bot, Eye, ArrowLeftRight, Gem, Layers, FlaskConical, Repeat2 } from "lucide-react";
 import { useTileStyle } from "@/hooks/use-tile-style";
 import { useTheme } from "@/hooks/use-theme";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 
 interface MultiplayerBoardProps {
   gameState: ClientRoomView;
@@ -34,6 +34,7 @@ interface MultiplayerBoardProps {
   onDraw: (forSeat?: PlayerSeat) => void;
   onDiscard: (id: string, forSeat?: PlayerSeat) => void;
   onSort: (forSeat?: PlayerSeat) => void;
+  onReorderHand: (tileIds: string[], forSeat?: PlayerSeat) => void;
   onTransfer: (tileId: string, fromSeat: PlayerSeat, toSeat: PlayerSeat) => void;
   onToggleHints: () => void;
   onToggleAutoShowHints: () => void;
@@ -222,6 +223,7 @@ export function MultiplayerBoard({
   onDraw,
   onDiscard,
   onSort,
+  onReorderHand,
   onTransfer,
   onToggleHints,
   onToggleAutoShowHints,
@@ -274,6 +276,44 @@ export function MultiplayerBoard({
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
+
+  const dragIndexRef = useRef<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  const handleDragStart = useCallback((e: React.DragEvent, index: number) => {
+    dragIndexRef.current = index;
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", String(index));
+    const target = e.currentTarget as HTMLElement;
+    requestAnimationFrame(() => target.style.opacity = "0.4");
+  }, []);
+
+  const handleDragEnd = useCallback((e: React.DragEvent) => {
+    (e.currentTarget as HTMLElement).style.opacity = "1";
+    dragIndexRef.current = null;
+    setDragOverIndex(null);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverIndex(index);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent, dropIndex: number, hand: TileType[], forSeat?: PlayerSeat) => {
+    e.preventDefault();
+    const fromIndex = dragIndexRef.current;
+    if (fromIndex === null || fromIndex === dropIndex) {
+      setDragOverIndex(null);
+      return;
+    }
+    const reordered = [...hand];
+    const [moved] = reordered.splice(fromIndex, 1);
+    reordered.splice(dropIndex, 0, moved);
+    onReorderHand(reordered.map(t => t.id), forSeat);
+    dragIndexRef.current = null;
+    setDragOverIndex(null);
+  }, [onReorderHand]);
 
   const isPlayingPartner = activeControlSeat && activeControlSeat !== gameState.mySeat;
   const displayHand = isPlayingPartner && gameState.partnerHand ? gameState.partnerHand : gameState.myHand;
@@ -738,18 +778,30 @@ export function MultiplayerBoard({
                     Rack 1 ({gameState.myHand.length}) - {gameState.mySeat}
                   </h3>
                   <div className="flex items-center justify-center gap-0.5 sm:gap-1 p-2 bg-stone-800/80 rounded-md border border-stone-700 flex-wrap" data-testid="hand-main">
-                    {gameState.myHand.map((tile) => {
+                    {gameState.myHand.map((tile, idx) => {
                       const isHighlighted = highlightedTileIds.has(tile.id);
                       const partnerSeat = gameState.mySeats.find(s => s !== gameState.mySeat);
+                      const isDragOver = dragOverIndex === idx && dragIndexRef.current !== idx;
                       return (
                         <div
                           key={tile.id}
-                          className={`relative ${
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, idx)}
+                          onDragEnd={handleDragEnd}
+                          onDragOver={(e) => handleDragOver(e, idx)}
+                          onDrop={(e) => handleDrop(e, idx, gameState.myHand, gameState.mySeat)}
+                          className={`relative cursor-grab active:cursor-grabbing transition-transform duration-150 ${
+                            isDragOver ? "scale-110 -translate-y-1" : ""
+                          } ${
                             isHighlighted && activeSuggestionPattern
                               ? "ring-2 ring-blue-400 rounded-md"
                               : ""
                           }`}
+                          data-testid={`hand-tile-${idx}`}
                         >
+                          {isDragOver && (
+                            <div className="absolute -left-0.5 top-0 bottom-0 w-1 bg-blue-400 rounded-full z-10" />
+                          )}
                           <Tile
                             tile={tile}
                             size={tileSize}
@@ -774,10 +826,25 @@ export function MultiplayerBoard({
                     Rack 2 ({gameState.partnerHand.length}) - {gameState.mySeats.find(s => s !== gameState.mySeat)}
                   </h3>
                   <div className="flex items-center justify-center gap-0.5 sm:gap-1 p-2 bg-stone-800/80 rounded-md border border-stone-700 flex-wrap" data-testid="hand-partner">
-                    {gameState.partnerHand.map((tile) => {
+                    {gameState.partnerHand.map((tile, idx) => {
                       const partnerSeat = gameState.mySeats.find(s => s !== gameState.mySeat)!;
+                      const isDragOver = dragOverIndex === idx && dragIndexRef.current !== idx;
                       return (
-                        <div key={tile.id} className="relative">
+                        <div
+                          key={tile.id}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, idx)}
+                          onDragEnd={handleDragEnd}
+                          onDragOver={(e) => handleDragOver(e, idx)}
+                          onDrop={(e) => handleDrop(e, idx, gameState.partnerHand, partnerSeat)}
+                          className={`relative cursor-grab active:cursor-grabbing transition-transform duration-150 ${
+                            isDragOver ? "scale-110 -translate-y-1" : ""
+                          }`}
+                          data-testid={`partner-tile-${idx}`}
+                        >
+                          {isDragOver && (
+                            <div className="absolute -left-0.5 top-0 bottom-0 w-1 bg-blue-400 rounded-full z-10" />
+                          )}
                           <Tile
                             tile={tile}
                             size={tileSize}
@@ -855,22 +922,34 @@ export function MultiplayerBoard({
 
               <div className="flex items-end justify-center gap-1 w-full flex-wrap">
                 <div className="flex items-center justify-center gap-0.5 sm:gap-1 p-2 sm:p-3 bg-stone-800/80 rounded-md border border-stone-700 flex-wrap" data-testid="hand-main">
-                  {displayHand.map((tile) => {
+                  {displayHand.map((tile, idx) => {
                     const isHighlighted = highlightedTileIds.has(tile.id);
                     const isSwapMatch = jokerSwapTarget && !tile.isJoker &&
                       tile.suit === jokerSwapTarget.matchSuit &&
                       tile.value === jokerSwapTarget.matchValue;
+                    const isDragOver = dragOverIndex === idx && dragIndexRef.current !== idx;
                     return (
                       <div
                         key={tile.id}
-                        className={`relative ${
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, idx)}
+                        onDragEnd={handleDragEnd}
+                        onDragOver={(e) => handleDragOver(e, idx)}
+                        onDrop={(e) => handleDrop(e, idx, displayHand, activeControlSeat || undefined)}
+                        className={`relative cursor-grab active:cursor-grabbing transition-transform duration-150 ${
+                          isDragOver ? "scale-110 -translate-y-1" : ""
+                        } ${
                           isSwapMatch
                             ? "ring-2 ring-amber-400 rounded-md"
                             : isHighlighted && activeSuggestionPattern
                               ? "ring-2 ring-blue-400 rounded-md"
                               : ""
                         }`}
+                        data-testid={`hand-tile-${idx}`}
                       >
+                        {isDragOver && (
+                          <div className="absolute -left-0.5 top-0 bottom-0 w-1 bg-blue-400 rounded-full z-10" />
+                        )}
                         <Tile
                           tile={tile}
                           size={tileSize}

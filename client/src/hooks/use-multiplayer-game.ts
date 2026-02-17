@@ -200,6 +200,10 @@ export function useMultiplayerGame() {
     socketRef.current?.emit("game:sort", forSeat ? { seat: forSeat } : undefined);
   }, []);
 
+  const reorderHand = useCallback((tileIds: string[], forSeat?: PlayerSeat) => {
+    socketRef.current?.emit("game:reorder", { tileIds, seat: forSeat });
+  }, []);
+
   const transferTile = useCallback((tileId: string, fromSeat: PlayerSeat, toSeat: PlayerSeat) => {
     socketRef.current?.emit("game:transfer", { tileId, fromSeat, toSeat });
   }, []);
@@ -310,6 +314,7 @@ export function useMultiplayerGame() {
     draw,
     discard,
     sortHand,
+    reorderHand,
     transferTile,
     toggleHints,
     toggleAutoShowHints,

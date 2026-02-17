@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { useMultiplayerGame } from "@/hooks/use-multiplayer-game";
 import { SEAT_ORDER, type PlayerSeat, type GameMode, type RoomConfig } from "@shared/schema";
 import { useLocation } from "wouter";
-import { Users, Copy, Check, Loader2, ArrowRight, Plus, Bot, Gem } from "lucide-react";
+import { Users, Copy, Check, Loader2, ArrowRight, Plus, Bot, Gem, Info } from "lucide-react";
 import { useTheme } from "@/hooks/use-theme";
 
 interface LobbyPageProps {
@@ -21,7 +21,7 @@ export default function LobbyPage({ game }: LobbyPageProps) {
   const [copied, setCopied] = useState(false);
   const [gameMode, setGameMode] = useState<GameMode>("4-player");
   const [fillWithBots, setFillWithBots] = useState(false);
-  const [includeBlanks, setIncludeBlanks] = useState(true);
+  const [includeBlanks, setIncludeBlanks] = useState(false);
   const [, setLocation] = useLocation();
 
   const { lobbyState, roomCode, error, playerCount, createRoom, joinRoom, gameState, gameEnded } = game;
@@ -285,8 +285,14 @@ export default function LobbyPage({ game }: LobbyPageProps) {
                 className="text-sm text-foreground cursor-pointer select-none"
                 onClick={() => setIncludeBlanks(!includeBlanks)}
               >
-                Include Blanks (optional - some players prefer without)
+                Include Zombie Blanks
               </label>
+              <div className="relative group">
+                <Info className="w-4 h-4 text-muted-foreground shrink-0 cursor-help" data-testid="icon-blanks-info" />
+                <div className="invisible group-hover:visible absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-2 rounded-md bg-popover border border-border shadow-md text-xs text-popover-foreground z-50">
+                  Adds 6 blank "zombie" tiles to the deck (158 total). These tiles can't form any pattern and act as dead weight — a fun challenge for experienced players!
+                </div>
+              </div>
             </div>
 
             <div className="border-t border-border pt-4">

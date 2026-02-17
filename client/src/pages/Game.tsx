@@ -33,6 +33,7 @@ export default function GamePage() {
     draw,
     discard,
     sortHand,
+    reorderHand,
     transferTile,
     toggleHints,
     toggleAutoShowHints,
@@ -95,6 +96,7 @@ export default function GamePage() {
             onDraw={draw}
             onDiscard={discard}
             onSort={sortHand}
+            onReorderHand={reorderHand}
             onTransfer={transferTile}
             onToggleHints={toggleHints}
             onToggleAutoShowHints={toggleAutoShowHints}

@@ -895,6 +895,8 @@ export function reorderPlayerHand(roomCode: string, playerId: string, tileIds: s
 
   if (tileIds.length !== player.hand.length) return false;
 
+  if (new Set(tileIds).size !== tileIds.length) return false;
+
   const handMap = new Map(player.hand.map(t => [t.id, t]));
   const reordered = [];
   for (const id of tileIds) {

@@ -198,6 +198,7 @@ export interface ClientToServerEvents {
   "game:claim": (data: { claimType: ClaimType; tileIds: string[] }) => void;
   "game:claim-pass": () => void;
   "game:swap-joker": (data: { myTileId: string; targetSeat: PlayerSeat; exposureIndex: number }) => void;
+  "game:reorder": (data: { tileIds: string[]; seat?: PlayerSeat }) => void;
   "game:test-siamese-win": () => void;
   "game:charleston-select": (data: { tileId: string }) => void;
   "game:charleston-ready": () => void;

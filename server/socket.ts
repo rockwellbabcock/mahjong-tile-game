@@ -13,6 +13,7 @@ import {
   drawTile,
   discardTile,
   sortPlayerHand,
+  reorderPlayerHand,
   getClientView,
   checkWinForPlayer,
   resetGame,
@@ -324,6 +325,14 @@ export function setupSocket(httpServer: HttpServer): Server<ClientToServerEvents
       if (!roomCode) return;
 
       sortPlayerHand(roomCode, socket.id, data?.seat);
+      broadcastState(io, roomCode);
+    });
+
+    socket.on("game:reorder", (data: { tileIds: string[]; seat?: PlayerSeat }) => {
+      const roomCode = playerRooms.get(socket.id);
+      if (!roomCode) return;
+
+      reorderPlayerHand(roomCode, socket.id, data.tileIds, data.seat);
       broadcastState(io, roomCode);
     });
 
