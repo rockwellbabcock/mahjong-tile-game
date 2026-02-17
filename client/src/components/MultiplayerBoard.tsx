@@ -705,7 +705,7 @@ export function MultiplayerBoard({
             <div className="absolute inset-0 flex flex-col p-1 sm:p-2">
               {isSiamese ? (
                 <>
-                  <div className="flex justify-center pt-1" data-testid="player-card-opponent">
+                  <div className="flex flex-col items-center pt-1 gap-1" data-testid="player-card-opponent">
                     <div className={`flex items-center gap-1.5 px-3 py-1 rounded-md ${
                       otherPlayers.some(p => p.seat === gameState.currentTurn)
                         ? mat.activeGlow
@@ -721,6 +721,38 @@ export function MultiplayerBoard({
                         </>
                       )}
                     </div>
+                    {opponentInfo && (opponentInfo.main.exposures.length > 0 || (opponentInfo.partner && opponentInfo.partner.exposures.length > 0)) && (
+                      <div className="flex flex-wrap items-center justify-center gap-1.5" data-testid="opponent-exposed-sets">
+                        {opponentInfo.main.exposures.map((group, gi) => (
+                          <div key={`r1-${gi}`} className="flex items-center gap-0.5 bg-white/10 rounded-md px-1 py-0.5" data-testid={`opponent-exposure-r1-${gi}`}>
+                            <span className="text-[8px] text-white/40 mr-0.5">R1</span>
+                            {group.tiles.map(tile => (
+                              <div key={tile.id} className="relative">
+                                <Tile tile={tile} size="xs" />
+                                {tile.id === group.fromDiscardId && (
+                                  <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-orange-400 border border-orange-500" />
+                                )}
+                              </div>
+                            ))}
+                            <span className="text-[8px] text-white/30 ml-0.5 capitalize">{group.claimType}</span>
+                          </div>
+                        ))}
+                        {opponentInfo.partner?.exposures.map((group, gi) => (
+                          <div key={`r2-${gi}`} className="flex items-center gap-0.5 bg-white/10 rounded-md px-1 py-0.5" data-testid={`opponent-exposure-r2-${gi}`}>
+                            <span className="text-[8px] text-white/40 mr-0.5">R2</span>
+                            {group.tiles.map(tile => (
+                              <div key={tile.id} className="relative">
+                                <Tile tile={tile} size="xs" />
+                                {tile.id === group.fromDiscardId && (
+                                  <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-orange-400 border border-orange-500" />
+                                )}
+                              </div>
+                            ))}
+                            <span className="text-[8px] text-white/30 ml-0.5 capitalize">{group.claimType}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex-1 flex items-center justify-center">
@@ -894,7 +926,12 @@ export function MultiplayerBoard({
                                     data-testid={`exposure-group-${acrossPlayer.seat.toLowerCase()}-${gi}`}
                                   >
                                     {group.tiles.map(tile => (
-                                      <Tile key={tile.id} tile={tile} size="xs" />
+                                      <div key={tile.id} className="relative">
+                                        <Tile tile={tile} size="xs" />
+                                        {tile.id === group.fromDiscardId && (
+                                          <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-orange-400 border border-orange-500" />
+                                        )}
+                                      </div>
                                     ))}
                                   </div>
                                 );
@@ -942,7 +979,12 @@ export function MultiplayerBoard({
                                         data-testid={`exposure-group-${leftPlayer.seat.toLowerCase()}-${gi}`}
                                       >
                                         {group.tiles.map(tile => (
-                                          <Tile key={tile.id} tile={tile} size="xs" />
+                                          <div key={tile.id} className="relative">
+                                            <Tile tile={tile} size="xs" />
+                                            {tile.id === group.fromDiscardId && (
+                                              <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-orange-400 border border-orange-500" />
+                                            )}
+                                          </div>
                                         ))}
                                       </div>
                                     );
@@ -1070,7 +1112,12 @@ export function MultiplayerBoard({
                                         data-testid={`exposure-group-${rightPlayer.seat.toLowerCase()}-${gi}`}
                                       >
                                         {group.tiles.map(tile => (
-                                          <Tile key={tile.id} tile={tile} size="xs" />
+                                          <div key={tile.id} className="relative">
+                                            <Tile tile={tile} size="xs" />
+                                            {tile.id === group.fromDiscardId && (
+                                              <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-orange-400 border border-orange-500" />
+                                            )}
+                                          </div>
                                         ))}
                                       </div>
                                     );
@@ -1146,6 +1193,26 @@ export function MultiplayerBoard({
                   <h3 className="text-[10px] font-bold text-stone-400 uppercase tracking-wider text-center mb-1" data-testid="text-hand-label">
                     Rack 1 ({gameState.myHand.length}) - {gameState.mySeat}
                   </h3>
+                  {(() => {
+                    const r1Player = gameState.players.find(p => p.seat === gameState.mySeat);
+                    return r1Player && r1Player.exposures.length > 0 ? (
+                      <div className="flex items-center justify-center gap-1.5 flex-wrap mb-1" data-testid="my-exposed-sets-r1">
+                        {r1Player.exposures.map((group, gi) => (
+                          <div key={gi} className="flex items-center gap-0.5 bg-stone-800/60 rounded-md px-1.5 py-0.5 border border-stone-700" data-testid={`my-exposure-r1-${gi}`}>
+                            {group.tiles.map(tile => (
+                              <div key={tile.id} className="relative">
+                                <Tile tile={tile} size="xs" />
+                                {tile.id === group.fromDiscardId && (
+                                  <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-orange-400 border border-orange-500" />
+                                )}
+                              </div>
+                            ))}
+                            <span className="text-[8px] text-stone-500 ml-0.5 capitalize">{group.claimType}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null;
+                  })()}
                   <div
                     className={`flex items-center justify-center gap-0.5 sm:gap-1 p-2 bg-stone-800/80 rounded-md border flex-wrap transition-colors duration-150 ${
                       dragSourceRack === "partner" && dragOverRack === "main"
@@ -1213,6 +1280,27 @@ export function MultiplayerBoard({
                   <h3 className="text-[10px] font-bold text-stone-400 uppercase tracking-wider text-center mb-1" data-testid="text-partner-hand-label">
                     Rack 2 ({gameState.partnerHand.length}) - {gameState.mySeats.find(s => s !== gameState.mySeat)}
                   </h3>
+                  {(() => {
+                    const partnerSeat = gameState.mySeats.find(s => s !== gameState.mySeat);
+                    const r2Player = partnerSeat ? gameState.players.find(p => p.seat === partnerSeat) : null;
+                    return r2Player && r2Player.exposures.length > 0 ? (
+                      <div className="flex items-center justify-center gap-1.5 flex-wrap mb-1" data-testid="my-exposed-sets-r2">
+                        {r2Player.exposures.map((group, gi) => (
+                          <div key={gi} className="flex items-center gap-0.5 bg-stone-800/60 rounded-md px-1.5 py-0.5 border border-stone-700" data-testid={`my-exposure-r2-${gi}`}>
+                            {group.tiles.map(tile => (
+                              <div key={tile.id} className="relative">
+                                <Tile tile={tile} size="xs" />
+                                {tile.id === group.fromDiscardId && (
+                                  <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-orange-400 border border-orange-500" />
+                                )}
+                              </div>
+                            ))}
+                            <span className="text-[8px] text-stone-500 ml-0.5 capitalize">{group.claimType}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null;
+                  })()}
                   <div
                     className={`flex items-center justify-center gap-0.5 sm:gap-1 p-2 bg-stone-800/80 rounded-md border flex-wrap transition-colors duration-150 ${
                       dragSourceRack === "main" && dragOverRack === "partner"
