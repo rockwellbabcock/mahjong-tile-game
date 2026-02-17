@@ -87,11 +87,15 @@ export interface MatColors {
   activeGlow: string;
   headerBg: string;
   headerBorder: string;
-  cornerDecorations: boolean;
   cornerColor: string;
   innerBorderColor: string;
   surfaceTexture: "dots" | "linen" | "none";
   surfaceOverlay: string;
+  centerMotif: "tong" | "compass" | "none";
+  centerMotifColor: string;
+  borderMotif: "bamboo" | "geometric" | "none";
+  borderMotifColor: string;
+  cornerStyle: "dragon-scroll" | "floral" | "geometric" | "none";
 }
 
 export const MAT_COLORS: Record<MatTheme, MatColors> = {
@@ -106,11 +110,15 @@ export const MAT_COLORS: Record<MatTheme, MatColors> = {
     activeGlow: "bg-emerald-500/20 border border-emerald-400/40",
     headerBg: "bg-emerald-950/95",
     headerBorder: "border-emerald-800/60",
-    cornerDecorations: true,
     cornerColor: "rgba(212,175,55,0.35)",
     innerBorderColor: "rgba(212,175,55,0.2)",
     surfaceTexture: "dots",
     surfaceOverlay: "from-black/15 via-transparent to-black/10",
+    centerMotif: "tong",
+    centerMotifColor: "rgba(212,175,55,0.18)",
+    borderMotif: "bamboo",
+    borderMotifColor: "rgba(212,175,55,0.12)",
+    cornerStyle: "dragon-scroll",
   },
   modern: {
     tableFrom: "from-slate-950",
@@ -123,11 +131,15 @@ export const MAT_COLORS: Record<MatTheme, MatColors> = {
     activeGlow: "bg-indigo-500/20 border border-indigo-400/40",
     headerBg: "bg-slate-950/95",
     headerBorder: "border-slate-700/50",
-    cornerDecorations: false,
-    cornerColor: "transparent",
+    cornerColor: "rgba(99,102,241,0.15)",
     innerBorderColor: "rgba(99,102,241,0.15)",
     surfaceTexture: "linen",
     surfaceOverlay: "from-black/10 via-transparent to-indigo-950/20",
+    centerMotif: "compass",
+    centerMotifColor: "rgba(148,163,184,0.1)",
+    borderMotif: "none",
+    borderMotifColor: "transparent",
+    cornerStyle: "floral",
   },
   minimal: {
     tableFrom: "from-stone-700",
@@ -140,10 +152,14 @@ export const MAT_COLORS: Record<MatTheme, MatColors> = {
     activeGlow: "bg-stone-300/20 border border-stone-300/30",
     headerBg: "bg-stone-700/95",
     headerBorder: "border-stone-500/40",
-    cornerDecorations: false,
-    cornerColor: "transparent",
+    cornerColor: "rgba(168,162,158,0.15)",
     innerBorderColor: "transparent",
     surfaceTexture: "none",
     surfaceOverlay: "from-black/5 via-transparent to-stone-400/5",
+    centerMotif: "none",
+    centerMotifColor: "transparent",
+    borderMotif: "geometric",
+    borderMotifColor: "rgba(168,162,158,0.08)",
+    cornerStyle: "geometric",
   },
 };

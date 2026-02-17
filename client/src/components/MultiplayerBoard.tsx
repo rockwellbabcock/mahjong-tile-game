@@ -570,32 +570,142 @@ export function MultiplayerBoard({
               }} />
             )}
 
-            {mat.cornerDecorations && (
+            {mat.centerMotif === "tong" && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <svg className="w-28 h-28 sm:w-44 sm:h-44 md:w-56 md:h-56 opacity-60" viewBox="0 0 200 200" fill="none">
+                  <circle cx="100" cy="100" r="90" stroke={mat.centerMotifColor} strokeWidth="2.5" />
+                  <circle cx="100" cy="100" r="80" stroke={mat.centerMotifColor} strokeWidth="1" />
+                  <circle cx="100" cy="100" r="35" stroke={mat.centerMotifColor} strokeWidth="2" />
+                  <rect x="88" y="88" width="24" height="24" rx="2" stroke={mat.centerMotifColor} strokeWidth="2" fill="none" />
+                  <line x1="100" y1="65" x2="100" y2="88" stroke={mat.centerMotifColor} strokeWidth="1.5" />
+                  <line x1="100" y1="112" x2="100" y2="135" stroke={mat.centerMotifColor} strokeWidth="1.5" />
+                  <line x1="65" y1="100" x2="88" y2="100" stroke={mat.centerMotifColor} strokeWidth="1.5" />
+                  <line x1="112" y1="100" x2="135" y2="100" stroke={mat.centerMotifColor} strokeWidth="1.5" />
+                  <path d="M100 10L100 20M100 180L100 190M10 100L20 100M180 100L190 100" stroke={mat.centerMotifColor} strokeWidth="1.5" />
+                  <path d="M100 35L103 42L100 45L97 42Z" fill={mat.centerMotifColor} />
+                  <path d="M100 165L103 158L100 155L97 158Z" fill={mat.centerMotifColor} />
+                  <path d="M35 100L42 97L45 100L42 103Z" fill={mat.centerMotifColor} />
+                  <path d="M165 100L158 97L155 100L158 103Z" fill={mat.centerMotifColor} />
+                  <circle cx="100" cy="100" r="6" fill={mat.centerMotifColor} />
+                  <path d="M30 30L38 22M170 30L162 22M30 170L38 178M170 170L162 178" stroke={mat.centerMotifColor} strokeWidth="1" />
+                  <circle cx="29" cy="29" r="3" stroke={mat.centerMotifColor} strokeWidth="1" fill="none" />
+                  <circle cx="171" cy="29" r="3" stroke={mat.centerMotifColor} strokeWidth="1" fill="none" />
+                  <circle cx="29" cy="171" r="3" stroke={mat.centerMotifColor} strokeWidth="1" fill="none" />
+                  <circle cx="171" cy="171" r="3" stroke={mat.centerMotifColor} strokeWidth="1" fill="none" />
+                </svg>
+              </div>
+            )}
+
+            {mat.centerMotif === "compass" && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <svg className="w-24 h-24 sm:w-36 sm:h-36 md:w-48 md:h-48 opacity-40" viewBox="0 0 200 200" fill="none">
+                  <circle cx="100" cy="100" r="85" stroke={mat.centerMotifColor} strokeWidth="1" strokeDasharray="4 6" />
+                  <circle cx="100" cy="100" r="70" stroke={mat.centerMotifColor} strokeWidth="0.5" />
+                  <line x1="100" y1="20" x2="100" y2="180" stroke={mat.centerMotifColor} strokeWidth="0.5" />
+                  <line x1="20" y1="100" x2="180" y2="100" stroke={mat.centerMotifColor} strokeWidth="0.5" />
+                  <line x1="43" y1="43" x2="157" y2="157" stroke={mat.centerMotifColor} strokeWidth="0.3" />
+                  <line x1="157" y1="43" x2="43" y2="157" stroke={mat.centerMotifColor} strokeWidth="0.3" />
+                  <circle cx="100" cy="100" r="4" fill={mat.centerMotifColor} />
+                </svg>
+              </div>
+            )}
+
+            {mat.borderMotif === "bamboo" && (
               <>
-                <svg className="absolute top-1 left-1 sm:top-2 sm:left-2 w-8 h-8 sm:w-12 sm:h-12 pointer-events-none" viewBox="0 0 48 48" fill="none">
-                  <path d="M4 24C4 12.954 12.954 4 24 4" stroke={mat.cornerColor} strokeWidth="1.5" fill="none" />
-                  <path d="M8 24C8 15.163 15.163 8 24 8" stroke={mat.cornerColor} strokeWidth="1" fill="none" />
-                  <circle cx="6" cy="6" r="2" fill={mat.cornerColor} />
-                  <path d="M4 4L14 4M4 4L4 14" stroke={mat.cornerColor} strokeWidth="1.5" />
-                </svg>
-                <svg className="absolute top-1 right-1 sm:top-2 sm:right-2 w-8 h-8 sm:w-12 sm:h-12 pointer-events-none" viewBox="0 0 48 48" fill="none" style={{ transform: "scaleX(-1)" }}>
-                  <path d="M4 24C4 12.954 12.954 4 24 4" stroke={mat.cornerColor} strokeWidth="1.5" fill="none" />
-                  <path d="M8 24C8 15.163 15.163 8 24 8" stroke={mat.cornerColor} strokeWidth="1" fill="none" />
-                  <circle cx="6" cy="6" r="2" fill={mat.cornerColor} />
-                  <path d="M4 4L14 4M4 4L4 14" stroke={mat.cornerColor} strokeWidth="1.5" />
-                </svg>
-                <svg className="absolute bottom-1 left-1 sm:bottom-2 sm:left-2 w-8 h-8 sm:w-12 sm:h-12 pointer-events-none" viewBox="0 0 48 48" fill="none" style={{ transform: "scaleY(-1)" }}>
-                  <path d="M4 24C4 12.954 12.954 4 24 4" stroke={mat.cornerColor} strokeWidth="1.5" fill="none" />
-                  <path d="M8 24C8 15.163 15.163 8 24 8" stroke={mat.cornerColor} strokeWidth="1" fill="none" />
-                  <circle cx="6" cy="6" r="2" fill={mat.cornerColor} />
-                  <path d="M4 4L14 4M4 4L4 14" stroke={mat.cornerColor} strokeWidth="1.5" />
-                </svg>
-                <svg className="absolute bottom-1 right-1 sm:bottom-2 sm:right-2 w-8 h-8 sm:w-12 sm:h-12 pointer-events-none" viewBox="0 0 48 48" fill="none" style={{ transform: "scale(-1,-1)" }}>
-                  <path d="M4 24C4 12.954 12.954 4 24 4" stroke={mat.cornerColor} strokeWidth="1.5" fill="none" />
-                  <path d="M8 24C8 15.163 15.163 8 24 8" stroke={mat.cornerColor} strokeWidth="1" fill="none" />
-                  <circle cx="6" cy="6" r="2" fill={mat.cornerColor} />
-                  <path d="M4 4L14 4M4 4L4 14" stroke={mat.cornerColor} strokeWidth="1.5" />
-                </svg>
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 pointer-events-none hidden sm:block">
+                  <svg className="w-40 h-4 md:w-64 md:h-5" viewBox="0 0 256 20" fill="none">
+                    <path d="M0 10 Q16 3, 32 10 Q48 17, 64 10 Q80 3, 96 10 Q112 17, 128 10 Q144 3, 160 10 Q176 17, 192 10 Q208 3, 224 10 Q240 17, 256 10" stroke={mat.borderMotifColor} strokeWidth="1.5" fill="none" />
+                    <path d="M20 6L24 2L28 6M52 14L56 18L60 14M84 6L88 2L92 6M116 14L120 18L124 14M148 6L152 2L156 6M180 14L184 18L188 14M212 6L216 2L220 6M244 14L248 18L252 14" stroke={mat.borderMotifColor} strokeWidth="0.8" fill="none" />
+                  </svg>
+                </div>
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-none hidden sm:block">
+                  <svg className="w-40 h-4 md:w-64 md:h-5" viewBox="0 0 256 20" fill="none" style={{ transform: "scaleY(-1)" }}>
+                    <path d="M0 10 Q16 3, 32 10 Q48 17, 64 10 Q80 3, 96 10 Q112 17, 128 10 Q144 3, 160 10 Q176 17, 192 10 Q208 3, 224 10 Q240 17, 256 10" stroke={mat.borderMotifColor} strokeWidth="1.5" fill="none" />
+                    <path d="M20 6L24 2L28 6M52 14L56 18L60 14M84 6L88 2L92 6M116 14L120 18L124 14M148 6L152 2L156 6M180 14L184 18L188 14M212 6L216 2L220 6M244 14L248 18L252 14" stroke={mat.borderMotifColor} strokeWidth="0.8" fill="none" />
+                  </svg>
+                </div>
+              </>
+            )}
+
+            {mat.borderMotif === "geometric" && (
+              <>
+                <div className="absolute top-2 left-1/2 -translate-x-1/2 pointer-events-none hidden sm:block">
+                  <svg className="w-32 h-3 md:w-48 md:h-3" viewBox="0 0 192 12" fill="none">
+                    {[0,24,48,72,96,120,144,168].map(x => (
+                      <rect key={x} x={x} y="2" width="16" height="8" rx="1" stroke={mat.borderMotifColor} strokeWidth="0.8" fill="none" />
+                    ))}
+                  </svg>
+                </div>
+                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 pointer-events-none hidden sm:block">
+                  <svg className="w-32 h-3 md:w-48 md:h-3" viewBox="0 0 192 12" fill="none">
+                    {[0,24,48,72,96,120,144,168].map(x => (
+                      <rect key={x} x={x} y="2" width="16" height="8" rx="1" stroke={mat.borderMotifColor} strokeWidth="0.8" fill="none" />
+                    ))}
+                  </svg>
+                </div>
+              </>
+            )}
+
+            {mat.cornerStyle === "dragon-scroll" && (
+              <>
+                {[
+                  { pos: "top-1 left-1 sm:top-2 sm:left-2", flip: "" },
+                  { pos: "top-1 right-1 sm:top-2 sm:right-2", flip: "scaleX(-1)" },
+                  { pos: "bottom-1 left-1 sm:bottom-2 sm:left-2", flip: "scaleY(-1)" },
+                  { pos: "bottom-1 right-1 sm:bottom-2 sm:right-2", flip: "scale(-1,-1)" },
+                ].map(({ pos, flip }, i) => (
+                  <svg key={i} className={`absolute ${pos} w-12 h-12 sm:w-20 sm:h-20 pointer-events-none`} viewBox="0 0 80 80" fill="none" style={flip ? { transform: flip } : undefined}>
+                    <path d="M6 50C6 28 28 6 50 6" stroke={mat.cornerColor} strokeWidth="1.5" fill="none" />
+                    <path d="M10 50C10 32 32 10 50 10" stroke={mat.cornerColor} strokeWidth="0.8" fill="none" />
+                    <path d="M6 6C6 6 18 6 18 6C18 6 18 18 18 18" stroke={mat.cornerColor} strokeWidth="1.5" fill="none" />
+                    <path d="M6 6L6 6" stroke={mat.cornerColor} strokeWidth="2" strokeLinecap="round" />
+                    <circle cx="8" cy="8" r="3" stroke={mat.cornerColor} strokeWidth="1" fill="none" />
+                    <circle cx="8" cy="8" r="1.2" fill={mat.cornerColor} />
+                    <path d="M12 30C16 22 22 16 30 12" stroke={mat.cornerColor} strokeWidth="1" fill="none" />
+                    <path d="M14 38C20 28 28 20 38 14" stroke={mat.cornerColor} strokeWidth="0.6" fill="none" />
+                    <path d="M50 6C50 6 46 10 48 14C50 18 54 16 52 12C50 8 50 6 50 6Z" stroke={mat.cornerColor} strokeWidth="0.8" fill={mat.cornerColor} opacity="0.4" />
+                    <path d="M6 50C6 50 10 46 14 48C18 50 16 54 12 52C8 50 6 50 6 50Z" stroke={mat.cornerColor} strokeWidth="0.8" fill={mat.cornerColor} opacity="0.4" />
+                    <path d="M22 6L22 10M28 6L28 8M34 6L34 8M40 6L40 9M6 22L10 22M6 28L8 28M6 34L8 34M6 40L9 40" stroke={mat.cornerColor} strokeWidth="0.6" />
+                  </svg>
+                ))}
+              </>
+            )}
+
+            {mat.cornerStyle === "floral" && (
+              <>
+                {[
+                  { pos: "top-1 left-1 sm:top-3 sm:left-3", flip: "" },
+                  { pos: "top-1 right-1 sm:top-3 sm:right-3", flip: "scaleX(-1)" },
+                  { pos: "bottom-1 left-1 sm:bottom-3 sm:left-3", flip: "scaleY(-1)" },
+                  { pos: "bottom-1 right-1 sm:bottom-3 sm:right-3", flip: "scale(-1,-1)" },
+                ].map(({ pos, flip }, i) => (
+                  <svg key={i} className={`absolute ${pos} w-10 h-10 sm:w-16 sm:h-16 pointer-events-none`} viewBox="0 0 64 64" fill="none" style={flip ? { transform: flip } : undefined}>
+                    <path d="M4 4C4 4 20 4 20 4C20 4 20 20 20 20" stroke={mat.cornerColor} strokeWidth="0.8" fill="none" />
+                    <path d="M8 4C14 10 14 18 8 24" stroke={mat.cornerColor} strokeWidth="0.6" fill="none" />
+                    <path d="M4 8C10 14 18 14 24 8" stroke={mat.cornerColor} strokeWidth="0.6" fill="none" />
+                    <circle cx="10" cy="10" r="3" stroke={mat.cornerColor} strokeWidth="0.8" fill="none" />
+                    <circle cx="10" cy="10" r="1" fill={mat.cornerColor} />
+                    <path d="M6 16C8 14 10 12 14 12C10 16 8 18 6 16Z" fill={mat.cornerColor} opacity="0.3" />
+                    <path d="M16 6C14 8 12 10 12 14C16 10 18 8 16 6Z" fill={mat.cornerColor} opacity="0.3" />
+                  </svg>
+                ))}
+              </>
+            )}
+
+            {mat.cornerStyle === "geometric" && (
+              <>
+                {[
+                  { pos: "top-1 left-1 sm:top-2 sm:left-2", flip: "" },
+                  { pos: "top-1 right-1 sm:top-2 sm:right-2", flip: "scaleX(-1)" },
+                  { pos: "bottom-1 left-1 sm:bottom-2 sm:left-2", flip: "scaleY(-1)" },
+                  { pos: "bottom-1 right-1 sm:bottom-2 sm:right-2", flip: "scale(-1,-1)" },
+                ].map(({ pos, flip }, i) => (
+                  <svg key={i} className={`absolute ${pos} w-6 h-6 sm:w-10 sm:h-10 pointer-events-none`} viewBox="0 0 40 40" fill="none" style={flip ? { transform: flip } : undefined}>
+                    <path d="M4 4L16 4L16 16L4 16Z" stroke={mat.cornerColor} strokeWidth="0.8" fill="none" />
+                    <path d="M4 4L16 16M16 4L4 16" stroke={mat.cornerColor} strokeWidth="0.4" />
+                    <rect x="7" y="7" width="6" height="6" stroke={mat.cornerColor} strokeWidth="0.5" fill="none" />
+                  </svg>
+                ))}
               </>
             )}
 
