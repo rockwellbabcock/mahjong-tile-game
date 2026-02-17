@@ -116,6 +116,17 @@ export interface PlayerState {
   deadHand?: DeadHandStatus;
 }
 
+export interface PlayAgainState {
+  votes: Partial<Record<PlayerSeat, boolean>>;
+  timeoutAt: number;
+}
+
+export interface ClientPlayAgainView {
+  votes: { seat: PlayerSeat; name: string; voted: boolean; isBot?: boolean }[];
+  myVote?: boolean;
+  timeoutAt: number;
+}
+
 export interface RoomState {
   roomCode: string;
   players: PlayerState[];
@@ -131,6 +142,7 @@ export interface RoomState {
   config: RoomConfig;
   charleston?: CharlestonState;
   callingState?: CallingState;
+  playAgain?: PlayAgainState;
 }
 
 export interface ClientCharlestonView {
@@ -178,6 +190,7 @@ export interface ClientRoomView {
   partnerHand?: Tile[];
   charleston?: ClientCharlestonView;
   callingState?: ClientCallingView;
+  playAgain?: ClientPlayAgainView;
 }
 
 export interface DisconnectedPlayerInfo {
@@ -195,13 +208,15 @@ export interface ServerToClientEvents {
   "room:player-left": (data: { playerName: string; seat: PlayerSeat; playerCount: number }) => void;
   "game:state": (state: ClientRoomView) => void;
   "game:started": () => void;
-  "game:win": (data: { winnerId: string; winnerName: string; winnerSeat: PlayerSeat; patternName: string; description: string }) => void;
+  "game:win": (data: { winnerId: string; winnerName: string; winnerSeat: PlayerSeat; patternName: string; description: string; rack1Pattern?: { name: string; description: string }; rack2Pattern?: { name: string; description: string } }) => void;
   "player:disconnected": (data: DisconnectedPlayerInfo) => void;
   "player:reconnected": (data: { playerName: string; seat: PlayerSeat }) => void;
   "player:timeout": (data: DisconnectedPlayerInfo) => void;
   "game:ended": (data: { reason: string }) => void;
   "game:dead-hand": (data: { seat: PlayerSeat; playerName: string; reason: DeadHandReason; rack?: "main" | "partner" | "both"; challengerName: string }) => void;
   "game:challenge-failed": (data: { challengerName: string; targetSeat: PlayerSeat; message: string }) => void;
+  "game:play-again-expired": () => void;
+  "game:play-again-declined": () => void;
   "error": (data: { message: string }) => void;
 }
 
@@ -223,6 +238,7 @@ export interface ClientToServerEvents {
   "game:forfeit": () => void;
   "game:zombie-exchange": (data: { blankTileId: string; discardTileId: string }) => void;
   "game:challenge": (data: { targetSeat: PlayerSeat; rack?: "main" | "partner" }) => void;
+  "game:play-again-vote": (data: { vote: boolean }) => void;
   "game:charleston-select": (data: { tileId: string }) => void;
   "game:charleston-ready": () => void;
   "game:charleston-skip": () => void;

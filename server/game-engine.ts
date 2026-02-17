@@ -1,9 +1,10 @@
-import { type Tile, type Suit, type TileValue, type PlayerSeat, type PlayerState, type RoomState, type ClientRoomView, type ClientCharlestonView, type ClientCallingView, type DisconnectedPlayerInfo, type RoomConfig, type GameMode, type CharlestonState, type CharlestonDirection, type CallingState, type PendingClaim, type ClaimType, type ZombieBlanksConfig, type DeadHandStatus, type DeadHandReason, SEAT_ORDER } from "@shared/schema";
+import { type Tile, type Suit, type TileValue, type PlayerSeat, type PlayerState, type RoomState, type ClientRoomView, type ClientCharlestonView, type ClientCallingView, type ClientPlayAgainView, type DisconnectedPlayerInfo, type RoomConfig, type GameMode, type CharlestonState, type CharlestonDirection, type CallingState, type PendingClaim, type ClaimType, type ZombieBlanksConfig, type DeadHandStatus, type DeadHandReason, type PlayAgainState, SEAT_ORDER } from "@shared/schema";
 import { checkForWin, checkAllPatterns } from "@shared/patterns";
 
 const RECONNECT_TIMEOUT_MS = 60_000;
 const BOT_TURN_DELAY_MS = 2_000;
 const BOT_DECISION_TIMEOUT_MS = 10_000;
+const PLAY_AGAIN_TIMEOUT_MS = 90_000;
 const SUITS: Suit[] = ["Bam", "Crak", "Dot"];
 const WINDS: TileValue[] = ["East", "South", "West", "North"];
 const DRAGONS: TileValue[] = ["Red", "Green", "White"];
@@ -1002,6 +1003,7 @@ export function getClientView(room: GameRoom, playerId: string): ClientRoomView 
     partnerHand,
     charleston: room.state.charleston ? getCharlestonView(room.state.charleston, player.seat) : undefined,
     callingState: room.state.callingState ? getCallingView(room.state.callingState, player.seat, playerId) : undefined,
+    playAgain: getPlayAgainView(room, playerId),
   };
 }
 
@@ -1093,6 +1095,7 @@ export function resetGame(roomCode: string): boolean {
   for (const player of room.state.players) {
     player.hand = deck.splice(0, 13).sort(compareTiles);
     player.exposures = [];
+    player.deadHand = undefined;
   }
 
   room.deck = deck;
@@ -1103,11 +1106,85 @@ export function resetGame(roomCode: string): boolean {
   room.state.lastDiscardedBy = null;
   room.state.winnerId = null;
   room.state.winnerSeat = null;
+  room.state.callingState = undefined;
+  room.state.playAgain = undefined;
 
-  room.state.charleston = createCharlestonState();
-  room.state.phase = "charleston";
+  if (room.state.config.gameMode === "2-player") {
+    room.state.phase = "draw";
+  } else {
+    room.state.charleston = createCharlestonState();
+    room.state.phase = "charleston";
+  }
 
   return true;
+}
+
+export function initiatePlayAgain(roomCode: string): boolean {
+  const room = rooms.get(roomCode);
+  if (!room) return false;
+  if (room.state.phase !== "won") return false;
+
+  const timeoutAt = Date.now() + PLAY_AGAIN_TIMEOUT_MS;
+  const votes: Partial<Record<PlayerSeat, boolean>> = {};
+
+  const isSiamese = room.state.config.gameMode === "2-player";
+  for (const player of room.state.players) {
+    if (player.controlledBy) continue;
+    if (player.isBot) {
+      votes[player.seat] = true;
+    }
+  }
+
+  room.state.playAgain = { votes, timeoutAt };
+  return true;
+}
+
+export function votePlayAgain(
+  roomCode: string,
+  playerId: string,
+  vote: boolean
+): { success: boolean; allVoted?: boolean; allYes?: boolean; error?: string } {
+  const room = rooms.get(roomCode);
+  if (!room) return { success: false, error: "Room not found" };
+  if (!room.state.playAgain) return { success: false, error: "No play-again vote in progress" };
+
+  const player = room.state.players.find(p => p.id === playerId);
+  if (!player) return { success: false, error: "Player not found" };
+
+  const voteSeat = player.controlledBy ? undefined : player.seat;
+  if (!voteSeat) return { success: false, error: "Controlled players cannot vote" };
+
+  room.state.playAgain.votes[voteSeat] = vote;
+
+  const votingPlayers = room.state.players.filter(p => !p.controlledBy);
+  const allVoted = votingPlayers.every(p => room.state.playAgain!.votes[p.seat] !== undefined);
+  const allYes = allVoted && votingPlayers.every(p => room.state.playAgain!.votes[p.seat] === true);
+
+  return { success: true, allVoted, allYes };
+}
+
+export function getPlayAgainView(room: GameRoom, playerId: string): ClientPlayAgainView | undefined {
+  if (!room.state.playAgain) return undefined;
+
+  const player = room.state.players.find(p => p.id === playerId);
+  if (!player) return undefined;
+
+  const mySeat = player.controlledBy
+    ? room.state.players.find(p => p.id === player.controlledBy)?.seat
+    : player.seat;
+
+  const votingPlayers = room.state.players.filter(p => !p.controlledBy);
+
+  return {
+    votes: votingPlayers.map(p => ({
+      seat: p.seat,
+      name: p.name,
+      voted: room.state.playAgain!.votes[p.seat] !== undefined,
+      isBot: p.isBot,
+    })),
+    myVote: mySeat ? room.state.playAgain!.votes[mySeat] : undefined,
+    timeoutAt: room.state.playAgain!.timeoutAt,
+  };
 }
 
 export function testSiameseWin(roomCode: string, playerId: string): {

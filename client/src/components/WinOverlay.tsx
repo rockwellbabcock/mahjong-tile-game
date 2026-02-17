@@ -1,7 +1,9 @@
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { type PatternMatch } from "@/lib/patterns";
+import { type ClientPlayAgainView } from "@shared/schema";
 import { Button } from "@/components/ui/button";
-import { RotateCcw, Trophy } from "lucide-react";
+import { Trophy, ThumbsUp, ThumbsDown, Clock, Check } from "lucide-react";
 
 interface RackPattern {
   name: string;
@@ -16,13 +18,29 @@ interface WinOverlayProps {
     rack1Pattern?: RackPattern;
     rack2Pattern?: RackPattern;
   };
-  onPlayAgain: () => void;
+  playAgain?: ClientPlayAgainView;
+  onVotePlayAgain: (vote: boolean) => void;
 }
 
-export function WinOverlay({ result, onPlayAgain }: WinOverlayProps) {
+export function WinOverlay({ result, playAgain, onVotePlayAgain }: WinOverlayProps) {
   const isMultiplayer = result.winnerName !== undefined;
   const isMe = result.isMe ?? true;
   const hasSiamesePatterns = result.rack1Pattern && result.rack2Pattern;
+
+  const [timeLeft, setTimeLeft] = useState<number>(90);
+
+  useEffect(() => {
+    if (!playAgain) return;
+    const update = () => {
+      const remaining = Math.max(0, Math.ceil((playAgain.timeoutAt - Date.now()) / 1000));
+      setTimeLeft(remaining);
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [playAgain?.timeoutAt]);
+
+  const hasVoted = playAgain?.myVote !== undefined;
 
   return (
     <motion.div
@@ -113,10 +131,63 @@ export function WinOverlay({ result, onPlayAgain }: WinOverlayProps) {
           </div>
         )}
 
-        <Button onClick={onPlayAgain} data-testid="button-play-again">
-          <RotateCcw className="w-4 h-4 mr-2" />
-          Play Again
-        </Button>
+        {playAgain && (
+          <div className="mt-4 border-t border-border pt-4" data-testid="play-again-section">
+            <div className="flex items-center justify-center gap-2 mb-3">
+              <Clock className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground" data-testid="text-play-again-timer">
+                {timeLeft}s remaining to vote
+              </span>
+            </div>
+
+            <p className="text-sm font-medium text-foreground mb-3">Play again?</p>
+
+            <div className="space-y-2 mb-4">
+              {playAgain.votes.map((v) => (
+                <div
+                  key={v.seat}
+                  className="flex items-center justify-between px-3 py-1.5 rounded-md bg-muted/30"
+                  data-testid={`play-again-voter-${v.seat}`}
+                >
+                  <span className="text-sm text-foreground">
+                    {v.name} {v.isBot && "(Bot)"}
+                  </span>
+                  <span>
+                    {v.voted ? (
+                      <Check className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <Clock className="w-4 h-4 text-muted-foreground animate-pulse" />
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {!hasVoted ? (
+              <div className="flex gap-3 justify-center">
+                <Button
+                  onClick={() => onVotePlayAgain(true)}
+                  data-testid="button-vote-yes"
+                >
+                  <ThumbsUp className="w-4 h-4 mr-2" />
+                  Yes
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => onVotePlayAgain(false)}
+                  data-testid="button-vote-no"
+                >
+                  <ThumbsDown className="w-4 h-4 mr-2" />
+                  No
+                </Button>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground" data-testid="text-vote-submitted">
+                {playAgain.myVote ? "You voted yes" : "You voted no"} — waiting for others...
+              </p>
+            )}
+          </div>
+        )}
       </motion.div>
     </motion.div>
   );

@@ -16,7 +16,6 @@ import {
   reorderPlayerHand,
   getClientView,
   checkWinForPlayer,
-  resetGame,
   endGame,
   addBotsToRoom,
   fillBotsAndStart,
@@ -45,12 +44,58 @@ import {
   swapJoker,
   zombieExchange,
   challengeHand,
+  initiatePlayAgain,
+  votePlayAgain,
+  resetGame as resetGameEngine,
 } from "./game-engine";
 import { log } from "./index";
 
 type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 
 const playerRooms = new Map<string, string>();
+const playAgainTimers = new Map<string, NodeJS.Timeout>();
+
+function startPlayAgainVoting(io: Server<ClientToServerEvents, ServerToClientEvents>, roomCode: string) {
+  const existing = playAgainTimers.get(roomCode);
+  if (existing) clearTimeout(existing);
+
+  const success = initiatePlayAgain(roomCode);
+  if (!success) return;
+
+  const room = getRoom(roomCode);
+  if (room && room.state.playAgain) {
+    const votingPlayers = room.state.players.filter(p => !p.controlledBy);
+    const allVoted = votingPlayers.every(p => room.state.playAgain!.votes[p.seat] !== undefined);
+    const allYes = allVoted && votingPlayers.every(p => room.state.playAgain!.votes[p.seat] === true);
+    if (allVoted && allYes) {
+      const resetSuccess = resetGameEngine(roomCode);
+      if (resetSuccess) {
+        log(`All bots - auto play again in room ${roomCode}`, "socket");
+        io.to(roomCode).emit("game:started");
+        if (room.state.config.gameMode !== "2-player") {
+          charlestonBotAutoSelect(roomCode);
+        } else {
+          handleBotTurns(io, roomCode);
+        }
+        broadcastState(io, roomCode);
+      }
+      return;
+    }
+  }
+
+  broadcastState(io, roomCode);
+
+  const timer = setTimeout(() => {
+    playAgainTimers.delete(roomCode);
+    const timeoutRoom = getRoom(roomCode);
+    if (!timeoutRoom || !timeoutRoom.state.playAgain) return;
+    timeoutRoom.state.playAgain = undefined;
+    io.to(roomCode).emit("game:play-again-expired");
+    endGame(roomCode);
+  }, 90_000);
+
+  playAgainTimers.set(roomCode, timer);
+}
 
 function broadcastState(io: Server<ClientToServerEvents, ServerToClientEvents>, roomCode: string) {
   const room = getRoom(roomCode);
@@ -86,6 +131,7 @@ function handleCallingResolution(io: Server<ClientToServerEvents, ServerToClient
           rack1Pattern: winCheck.rack1Pattern,
           rack2Pattern: winCheck.rack2Pattern,
         });
+        startPlayAgainVoting(io, roomCode);
       }
     }
   }
@@ -165,6 +211,7 @@ function handleBotTurns(io: Server<ClientToServerEvents, ServerToClientEvents>, 
             rack1Pattern: winCheck.rack1Pattern,
             rack2Pattern: winCheck.rack2Pattern,
           });
+          startPlayAgainVoting(io, roomCode);
           broadcastState(io, roomCode);
           return;
         }
@@ -367,6 +414,7 @@ export function setupSocket(httpServer: HttpServer): Server<ClientToServerEvents
             rack1Pattern: winResult.rack1Pattern,
             rack2Pattern: winResult.rack2Pattern,
           });
+          startPlayAgainVoting(io, roomCode);
         }
       }
 
@@ -445,6 +493,7 @@ export function setupSocket(httpServer: HttpServer): Server<ClientToServerEvents
           rack1Pattern: result.rack1Pattern,
           rack2Pattern: result.rack2Pattern,
         });
+        startPlayAgainVoting(io, roomCode);
         broadcastState(io, roomCode);
       }
     });
@@ -596,7 +645,7 @@ export function setupSocket(httpServer: HttpServer): Server<ClientToServerEvents
       const roomCode = playerRooms.get(socket.id);
       if (!roomCode) return;
 
-      const success = resetGame(roomCode);
+      const success = resetGameEngine(roomCode);
       if (success) {
         const room = getRoom(roomCode);
         log(`Game reset in room ${roomCode}`, "socket");
@@ -606,6 +655,45 @@ export function setupSocket(httpServer: HttpServer): Server<ClientToServerEvents
         } else {
           handleBotTurns(io, roomCode);
         }
+        broadcastState(io, roomCode);
+      }
+    });
+
+    socket.on("game:play-again-vote", ({ vote }: { vote: boolean }) => {
+      const roomCode = playerRooms.get(socket.id);
+      if (!roomCode) return;
+
+      const result = votePlayAgain(roomCode, socket.id, vote);
+      if (!result.success) {
+        socket.emit("error", { message: result.error || "Vote failed" });
+        return;
+      }
+
+      if (result.allVoted) {
+        const timer = playAgainTimers.get(roomCode);
+        if (timer) {
+          clearTimeout(timer);
+          playAgainTimers.delete(roomCode);
+        }
+
+        if (result.allYes) {
+          const success = resetGameEngine(roomCode);
+          if (success) {
+            const room = getRoom(roomCode);
+            log(`Play again accepted in room ${roomCode}`, "socket");
+            io.to(roomCode).emit("game:started");
+            if (room && room.state.config.gameMode !== "2-player") {
+              charlestonBotAutoSelect(roomCode);
+            } else {
+              handleBotTurns(io, roomCode);
+            }
+            broadcastState(io, roomCode);
+          }
+        } else {
+          io.to(roomCode).emit("game:play-again-declined");
+          endGame(roomCode);
+        }
+      } else {
         broadcastState(io, roomCode);
       }
     });

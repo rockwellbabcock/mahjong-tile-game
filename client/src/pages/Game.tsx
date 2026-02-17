@@ -50,6 +50,7 @@ export default function GamePage() {
     handleTimeoutAction,
     selectSuggestionPattern,
     forfeitGame,
+    votePlayAgain,
   } = game;
 
   if (lobbyState !== "playing" || !gameState) {
@@ -137,7 +138,8 @@ export default function GamePage() {
           {winResult && (
             <WinOverlay
               result={winResult}
-              onPlayAgain={resetGame}
+              playAgain={gameState.playAgain}
+              onVotePlayAgain={votePlayAgain}
             />
           )}
         </div>

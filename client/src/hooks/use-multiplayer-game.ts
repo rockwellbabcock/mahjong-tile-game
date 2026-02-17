@@ -153,6 +153,34 @@ export function useMultiplayerGame() {
       setTimeout(() => setChallengeFailedAlert(null), 5000);
     });
 
+    socket.on("game:play-again-expired", () => {
+      setGameEnded("Play again vote timed out.");
+      setLobbyState("idle");
+      setGameState(null);
+      setRoomCode(null);
+      setMySeat(null);
+      setMySeats([]);
+      setWinInfo(null);
+      sessionStorage.removeItem(SESSION_KEY_ROOM);
+      sessionStorage.removeItem(SESSION_KEY_NAME);
+      sessionStorage.removeItem(SESSION_KEY_SEAT);
+      sessionStorage.removeItem(SESSION_KEY_TOKEN);
+    });
+
+    socket.on("game:play-again-declined", () => {
+      setGameEnded("A player declined to play again.");
+      setLobbyState("idle");
+      setGameState(null);
+      setRoomCode(null);
+      setMySeat(null);
+      setMySeats([]);
+      setWinInfo(null);
+      sessionStorage.removeItem(SESSION_KEY_ROOM);
+      sessionStorage.removeItem(SESSION_KEY_NAME);
+      sessionStorage.removeItem(SESSION_KEY_SEAT);
+      sessionStorage.removeItem(SESSION_KEY_TOKEN);
+    });
+
     socket.on("error", (data) => {
       setError(data.message);
       setTimeout(() => setError(null), 5000);
@@ -188,6 +216,8 @@ export function useMultiplayerGame() {
       socket.off("player:reconnected");
       socket.off("player:timeout");
       socket.off("game:ended");
+      socket.off("game:play-again-expired");
+      socket.off("game:play-again-declined");
       socket.off("error");
     };
   }, []);
@@ -293,6 +323,10 @@ export function useMultiplayerGame() {
     }
   }, []);
 
+  const votePlayAgain = useCallback((vote: boolean) => {
+    socketRef.current?.emit("game:play-again-vote", { vote });
+  }, []);
+
   const selectSuggestionPattern = useCallback((patternId: string | null) => {
     setActiveSuggestionPattern(patternId);
   }, []);
@@ -355,5 +389,6 @@ export function useMultiplayerGame() {
     handleTimeoutAction,
     selectSuggestionPattern,
     forfeitGame,
+    votePlayAgain,
   };
 }
