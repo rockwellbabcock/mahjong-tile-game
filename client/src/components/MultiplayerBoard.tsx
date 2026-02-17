@@ -5,7 +5,7 @@ import { Tile, TileBack } from "./Tile";
 import { HintPanel } from "./HintPanel";
 import { GameTooltip } from "./GameTooltip";
 import { Button } from "@/components/ui/button";
-import { ArrowUpDown, Lightbulb, Palette, Copy, Check, Hand, WifiOff, Clock, X, Bot, Eye, ArrowLeftRight, Gem, Layers, FlaskConical, Repeat2, Flag } from "lucide-react";
+import { ArrowUpDown, Lightbulb, Palette, Copy, Check, Hand, WifiOff, Clock, X, Bot, Eye, ArrowLeftRight, Gem, Layers, FlaskConical, Repeat2, Flag, Loader2 } from "lucide-react";
 import { useTileStyle } from "@/hooks/use-tile-style";
 import { useTheme } from "@/hooks/use-theme";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
@@ -233,9 +233,16 @@ export function MultiplayerBoard({
         ? gameState.players.find(p => p.id === currentPlayer.controlledBy)
         : currentPlayer;
       const opponentName = controller?.name || currentPlayer.name;
+      const isBotTurn = currentPlayer.isBot || controller?.isBot;
+      if (isBotTurn) {
+        return `${opponentName} is thinking...`;
+      }
       return `Waiting for ${opponentName} to ${gameState.phase === "draw" ? "draw" : "discard"} (${gameState.currentTurn})...`;
     }
-    const nameLabel = currentPlayer?.isBot ? `${currentPlayer.name}` : (currentPlayer?.name || gameState.currentTurn);
+    if (currentPlayer?.isBot) {
+      return `${currentPlayer.name} is thinking...`;
+    }
+    const nameLabel = currentPlayer?.name || gameState.currentTurn;
     return `Waiting for ${nameLabel} to ${gameState.phase === "draw" ? "draw" : "discard"}...`;
   }
 
@@ -415,7 +422,20 @@ export function MultiplayerBoard({
         }`}
         data-testid="status-bar"
       >
-        {getStatusMessage()}
+        {(() => {
+          const msg = getStatusMessage();
+          const currentPlayer = gameState.players.find(p => p.seat === gameState.currentTurn);
+          const isBotThinking = !isMyTurn && gameState.phase !== "won" && gameState.phase !== "calling" && currentPlayer?.isBot;
+          if (isBotThinking) {
+            return (
+              <span className="inline-flex items-center gap-1.5" data-testid="bot-thinking-indicator">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                {msg}
+              </span>
+            );
+          }
+          return msg;
+        })()}
       </div>
 
       {disconnectedPlayer && (
@@ -581,8 +601,12 @@ export function MultiplayerBoard({
                         </Button>
                       )}
                       {!isMyTurn && gameState.phase !== "won" && gameState.phase !== "calling" && (
-                        <p className="text-white/40 text-xs text-center">
-                          Waiting for {gameState.currentTurn}...
+                        <p className="text-white/40 text-xs text-center inline-flex items-center gap-1.5 justify-center">
+                          {(() => {
+                            const cp = gameState.players.find(p => p.seat === gameState.currentTurn);
+                            if (cp?.isBot) return (<><Loader2 className="w-3 h-3 animate-spin" />{cp.name} is thinking...</>);
+                            return <>Waiting for {cp?.name || gameState.currentTurn}...</>;
+                          })()}
                         </p>
                       )}
                     </div>
@@ -635,7 +659,11 @@ export function MultiplayerBoard({
                           }`}>
                             <div className={`w-2 h-2 rounded-full ${acrossPlayer.connected ? (acrossPlayer.isBot ? "bg-blue-400" : "bg-emerald-400") : "bg-red-400"}`} />
                             <span className="text-xs font-bold text-white/90 truncate max-w-[80px]">{acrossPlayer.name}</span>
-                            {acrossPlayer.isBot && <Bot className="w-3 h-3 text-blue-400 shrink-0" />}
+                            {acrossPlayer.isBot && acrossPlayer.seat === gameState.currentTurn ? (
+                              <Loader2 className="w-3 h-3 text-blue-400 shrink-0 animate-spin" data-testid={`bot-thinking-${acrossPlayer.seat.toLowerCase()}`} />
+                            ) : acrossPlayer.isBot ? (
+                              <Bot className="w-3 h-3 text-blue-400 shrink-0" />
+                            ) : null}
                             <span className="text-[10px] text-white/50">{acrossPlayer.seat}</span>
                             <Hand className="w-3 h-3 text-white/60" />
                             <span className="text-[10px] text-white/60 font-mono">{acrossPlayer.handCount}</span>
@@ -680,7 +708,11 @@ export function MultiplayerBoard({
                               }`} data-testid={`player-card-${leftPlayer.seat.toLowerCase()}`}>
                                 <div className={`w-2 h-2 rounded-full ${leftPlayer.connected ? (leftPlayer.isBot ? "bg-blue-400" : "bg-emerald-400") : "bg-red-400"}`} />
                                 <span className="text-[10px] sm:text-xs font-bold text-white/90 truncate max-w-[60px]">{leftPlayer.name}</span>
-                                {leftPlayer.isBot && <Bot className="w-3 h-3 text-blue-400 shrink-0" />}
+                                {leftPlayer.isBot && leftPlayer.seat === gameState.currentTurn ? (
+                                  <Loader2 className="w-3 h-3 text-blue-400 shrink-0 animate-spin" data-testid={`bot-thinking-${leftPlayer.seat.toLowerCase()}`} />
+                                ) : leftPlayer.isBot ? (
+                                  <Bot className="w-3 h-3 text-blue-400 shrink-0" />
+                                ) : null}
                                 <span className="text-[10px] text-white/50">{leftPlayer.seat}</span>
                               </div>
                               <span className="text-[10px] text-white/50 flex items-center gap-1"><Hand className="w-3 h-3" />{leftPlayer.handCount}</span>
@@ -784,8 +816,12 @@ export function MultiplayerBoard({
                             </div>
                           )}
                           {!isMyTurn && gameState.phase !== "won" && gameState.phase !== "calling" && (
-                            <p className="text-white/40 text-xs mt-1 text-center">
-                              Waiting for {gameState.currentTurn}...
+                            <p className="text-white/40 text-xs mt-1 text-center inline-flex items-center gap-1.5 justify-center">
+                              {(() => {
+                                const cp = gameState.players.find(p => p.seat === gameState.currentTurn);
+                                if (cp?.isBot) return (<><Loader2 className="w-3 h-3 animate-spin" />{cp.name} is thinking...</>);
+                                return <>Waiting for {cp?.name || gameState.currentTurn}...</>;
+                              })()}
                             </p>
                           )}
                         </div>
@@ -800,7 +836,11 @@ export function MultiplayerBoard({
                               }`} data-testid={`player-card-${rightPlayer.seat.toLowerCase()}`}>
                                 <div className={`w-2 h-2 rounded-full ${rightPlayer.connected ? (rightPlayer.isBot ? "bg-blue-400" : "bg-emerald-400") : "bg-red-400"}`} />
                                 <span className="text-[10px] sm:text-xs font-bold text-white/90 truncate max-w-[60px]">{rightPlayer.name}</span>
-                                {rightPlayer.isBot && <Bot className="w-3 h-3 text-blue-400 shrink-0" />}
+                                {rightPlayer.isBot && rightPlayer.seat === gameState.currentTurn ? (
+                                  <Loader2 className="w-3 h-3 text-blue-400 shrink-0 animate-spin" data-testid={`bot-thinking-${rightPlayer.seat.toLowerCase()}`} />
+                                ) : rightPlayer.isBot ? (
+                                  <Bot className="w-3 h-3 text-blue-400 shrink-0" />
+                                ) : null}
                                 <span className="text-[10px] text-white/50">{rightPlayer.seat}</span>
                               </div>
                               <span className="text-[10px] text-white/50 flex items-center gap-1"><Hand className="w-3 h-3" />{rightPlayer.handCount}</span>

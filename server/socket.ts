@@ -101,48 +101,109 @@ function handleBotTurns(io: Server<ClientToServerEvents, ServerToClientEvents>, 
 
   if (!isCurrentTurnBot(roomCode)) return;
 
-  scheduleBotTurn(roomCode, () => {
-    const currentRoom = getRoom(roomCode);
-    if (!currentRoom || currentRoom.state.phase === "won") return;
+  const currentBot = room.state.players.find(p => p.seat === room.state.currentTurn);
+  const botName = currentBot?.name || "Bot";
+  log(`[bot] ${botName} starting turn (${room.state.phase}) in room ${roomCode}`, "socket");
 
-    if (currentRoom.state.phase === "draw") {
+  const turnStartTime = Date.now();
+
+  const botTurnTimeout = setTimeout(() => {
+    const timeoutRoom = getRoom(roomCode);
+    if (!timeoutRoom || timeoutRoom.state.phase === "won") return;
+    const timeoutBot = timeoutRoom.state.players.find(p => p.seat === timeoutRoom.state.currentTurn);
+    if (!timeoutBot?.isBot) return;
+
+    console.error(`[bot] ${timeoutBot.name} timed out after 10s in room ${roomCode}, forcing move`);
+
+    if (timeoutRoom.state.phase === "draw") {
       const drawResult = executeBotDraw(roomCode);
       if (!drawResult.success) return;
+      broadcastState(io, roomCode);
+    }
 
-      const winCheck = checkBotWin(roomCode);
-      if (winCheck.won && winCheck.botName && winCheck.botSeat) {
-        io.to(roomCode).emit("game:win", {
-          winnerId: "bot",
-          winnerName: winCheck.botName,
-          winnerSeat: winCheck.botSeat,
-          patternName: winCheck.patternName || "Unknown",
-          description: winCheck.description || "",
-          rack1Pattern: winCheck.rack1Pattern,
-          rack2Pattern: winCheck.rack2Pattern,
-        });
+    if (timeoutRoom.state.phase === "discard") {
+      const discardResult = executeBotDiscard(roomCode);
+      if (discardResult.success) {
+        if (timeoutRoom.state.phase === "calling") {
+          botCallingDecision(roomCode);
+          broadcastState(io, roomCode);
+          handleCallingResolution(io, roomCode);
+        } else {
+          broadcastState(io, roomCode);
+          handleBotTurns(io, roomCode);
+        }
+      }
+    }
+  }, 10_000);
+
+  scheduleBotTurn(roomCode, () => {
+    const currentRoom = getRoom(roomCode);
+    if (!currentRoom || currentRoom.state.phase === "won") {
+      clearTimeout(botTurnTimeout);
+      return;
+    }
+
+    if (currentRoom.state.phase === "draw") {
+      try {
+        const drawResult = executeBotDraw(roomCode);
+        if (!drawResult.success) {
+          clearTimeout(botTurnTimeout);
+          console.error(`[bot] ${botName} draw failed in room ${roomCode}`);
+          return;
+        }
+
+        const winCheck = checkBotWin(roomCode);
+        if (winCheck.won && winCheck.botName && winCheck.botSeat) {
+          clearTimeout(botTurnTimeout);
+          io.to(roomCode).emit("game:win", {
+            winnerId: "bot",
+            winnerName: winCheck.botName,
+            winnerSeat: winCheck.botSeat,
+            patternName: winCheck.patternName || "Unknown",
+            description: winCheck.description || "",
+            rack1Pattern: winCheck.rack1Pattern,
+            rack2Pattern: winCheck.rack2Pattern,
+          });
+          broadcastState(io, roomCode);
+          return;
+        }
+
         broadcastState(io, roomCode);
+      } catch (error) {
+        console.error(`[bot] ${botName} error during draw:`, error);
+        clearTimeout(botTurnTimeout);
         return;
       }
 
-      broadcastState(io, roomCode);
-
       scheduleBotTurn(roomCode, () => {
         const discardRoom = getRoom(roomCode);
-        if (!discardRoom || discardRoom.state.phase === "won") return;
+        if (!discardRoom || discardRoom.state.phase === "won") {
+          clearTimeout(botTurnTimeout);
+          return;
+        }
 
         if (discardRoom.state.phase === "discard") {
-          executeBotTransfers(roomCode);
+          try {
+            executeBotTransfers(roomCode);
 
-          const discardResult = executeBotDiscard(roomCode);
-          if (discardResult.success) {
-            if (discardRoom.state.phase === "calling") {
-              botCallingDecision(roomCode);
-              broadcastState(io, roomCode);
-              handleCallingResolution(io, roomCode);
-            } else {
-              broadcastState(io, roomCode);
-              handleBotTurns(io, roomCode);
+            const discardResult = executeBotDiscard(roomCode);
+            clearTimeout(botTurnTimeout);
+            const elapsed = Date.now() - turnStartTime;
+            log(`[bot] ${botName} completed turn in ${elapsed}ms`, "socket");
+
+            if (discardResult.success) {
+              if (discardRoom.state.phase === "calling") {
+                botCallingDecision(roomCode);
+                broadcastState(io, roomCode);
+                handleCallingResolution(io, roomCode);
+              } else {
+                broadcastState(io, roomCode);
+                handleBotTurns(io, roomCode);
+              }
             }
+          } catch (error) {
+            clearTimeout(botTurnTimeout);
+            console.error(`[bot] ${botName} error during discard:`, error);
           }
         }
       });

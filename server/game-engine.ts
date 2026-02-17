@@ -3,6 +3,7 @@ import { checkForWin, checkAllPatterns } from "@shared/patterns";
 
 const RECONNECT_TIMEOUT_MS = 60_000;
 const BOT_TURN_DELAY_MS = 2_000;
+const BOT_DECISION_TIMEOUT_MS = 10_000;
 const SUITS: Suit[] = ["Bam", "Crak", "Dot"];
 const WINDS: TileValue[] = ["East", "South", "West", "North"];
 const DRAGONS: TileValue[] = ["Red", "Green", "White"];
@@ -1241,101 +1242,133 @@ export function isCurrentTurnControlledByHuman(roomCode: string): string | null 
   return null;
 }
 
+function botRandomDiscard(hand: Tile[]): string {
+  const nonJokers = hand.filter(t => t.suit !== "Joker");
+  const pool = nonJokers.length > 0 ? nonJokers : hand;
+  return pool[Math.floor(Math.random() * pool.length)].id;
+}
+
 export function botChooseDiscard(hand: Tile[]): string {
-  const patterns = checkAllPatterns(hand);
-  const top3 = patterns.slice(0, 3);
+  try {
+    const startTime = Date.now();
+    const patterns = checkAllPatterns(hand);
+    const elapsed = Date.now() - startTime;
+    if (elapsed > BOT_DECISION_TIMEOUT_MS) {
+      console.warn(`[bot] Pattern analysis took ${elapsed}ms, exceeding ${BOT_DECISION_TIMEOUT_MS}ms timeout. Using random discard.`);
+      return botRandomDiscard(hand);
+    }
+    const top3 = patterns.slice(0, 3);
 
-  const tileScores = new Map<string, number>();
-  for (const tile of hand) {
-    tileScores.set(tile.id, 0);
-  }
+    const tileScores = new Map<string, number>();
+    for (const tile of hand) {
+      tileScores.set(tile.id, 0);
+    }
 
-  for (const pattern of top3) {
-    const weight = Math.max(1, 14 - pattern.tilesAway);
-    for (const matchStr of pattern.matched) {
-      const countMatch = matchStr.match(/^(\d+)x\s+(.+)$/);
-      if (!countMatch) continue;
-      const label = countMatch[2];
-      for (const tile of hand) {
-        const tileLabel = tile.suit === "Joker" ? "Joker" : `${tile.suit} ${tile.value}`;
-        if (tileLabel === label || label === "Flower" && tile.suit === "Flower" || label === "any Dragon" && tile.suit === "Dragon") {
-          tileScores.set(tile.id, (tileScores.get(tile.id) || 0) + weight);
+    for (const pattern of top3) {
+      const weight = Math.max(1, 14 - pattern.tilesAway);
+      for (const matchStr of pattern.matched) {
+        const countMatch = matchStr.match(/^(\d+)x\s+(.+)$/);
+        if (!countMatch) continue;
+        const label = countMatch[2];
+        for (const tile of hand) {
+          const tileLabel = tile.suit === "Joker" ? "Joker" : `${tile.suit} ${tile.value}`;
+          if (tileLabel === label || label === "Flower" && tile.suit === "Flower" || label === "any Dragon" && tile.suit === "Dragon") {
+            tileScores.set(tile.id, (tileScores.get(tile.id) || 0) + weight);
+          }
         }
       }
     }
-  }
 
-  if (hand.filter(t => t.suit === "Joker").length > 0) {
-    for (const t of hand) {
-      if (t.suit === "Joker") {
-        tileScores.set(t.id, (tileScores.get(t.id) || 0) + 100);
+    if (hand.filter(t => t.suit === "Joker").length > 0) {
+      for (const t of hand) {
+        if (t.suit === "Joker") {
+          tileScores.set(t.id, (tileScores.get(t.id) || 0) + 100);
+        }
       }
     }
-  }
 
-  let worstTileId = hand[0].id;
-  let worstScore = Infinity;
-  for (const tile of hand) {
-    const score = tileScores.get(tile.id) || 0;
-    const tileRank = typeof tile.value === "number" ? tile.value : 5;
-    const combined = score * 100 - tileRank;
-    if (combined < worstScore) {
-      worstScore = combined;
-      worstTileId = tile.id;
+    let worstTileId = hand[0].id;
+    let worstScore = Infinity;
+    for (const tile of hand) {
+      const score = tileScores.get(tile.id) || 0;
+      const tileRank = typeof tile.value === "number" ? tile.value : 5;
+      const combined = score * 100 - tileRank;
+      if (combined < worstScore) {
+        worstScore = combined;
+        worstTileId = tile.id;
+      }
     }
-  }
 
-  return worstTileId;
+    const totalElapsed = Date.now() - startTime;
+    if (totalElapsed > 1000) {
+      console.log(`[bot] Discard decision took ${totalElapsed}ms`);
+    }
+
+    return worstTileId;
+  } catch (error) {
+    console.error("[bot] Error in botChooseDiscard, using random discard:", error);
+    return botRandomDiscard(hand);
+  }
 }
 
 export function executeBotTransfers(roomCode: string): void {
-  const room = rooms.get(roomCode);
-  if (!room) return;
-  if (room.state.config.gameMode !== "2-player") return;
+  try {
+    const room = rooms.get(roomCode);
+    if (!room) return;
+    if (room.state.config.gameMode !== "2-player") return;
 
-  const currentPlayer = room.state.players.find(p => p.seat === room.state.currentTurn);
-  if (!currentPlayer || !currentPlayer.isBot) return;
+    const currentPlayer = room.state.players.find(p => p.seat === room.state.currentTurn);
+    if (!currentPlayer || !currentPlayer.isBot) return;
 
-  const controllerId = currentPlayer.controlledBy || currentPlayer.id;
-  const partner = room.state.players.find(p => p.controlledBy === controllerId);
-  if (!partner) return;
+    const controllerId = currentPlayer.controlledBy || currentPlayer.id;
+    const partner = room.state.players.find(p => p.controlledBy === controllerId);
+    if (!partner) return;
 
-  const hand1Patterns = checkAllPatterns(currentPlayer.hand);
-  const hand2Patterns = checkAllPatterns(partner.hand);
-  const best1 = hand1Patterns[0];
-  const best2 = hand2Patterns[0];
-  if (!best1 || !best2) return;
+    const startTime = Date.now();
+    const hand1Patterns = checkAllPatterns(currentPlayer.hand);
+    const hand2Patterns = checkAllPatterns(partner.hand);
+    const elapsed = Date.now() - startTime;
+    if (elapsed > BOT_DECISION_TIMEOUT_MS) {
+      console.warn(`[bot] Transfer pattern analysis took ${elapsed}ms, skipping transfers.`);
+      return;
+    }
+    const best1 = hand1Patterns[0];
+    const best2 = hand2Patterns[0];
+    if (!best1 || !best2) return;
 
-  for (const tile of [...currentPlayer.hand]) {
-    if (currentPlayer.hand.length <= 1) break;
+    for (const tile of [...currentPlayer.hand]) {
+      if (currentPlayer.hand.length <= 1) break;
 
-    const tileLabel = tile.suit === "Joker" ? "Joker" : `${tile.suit} ${tile.value}`;
-    const usefulForHand1 = best1.matched.some(m => m.includes(tileLabel));
-    const usefulForHand2 = best2.missing.some(m => m.includes(tileLabel));
+      const tileLabel = tile.suit === "Joker" ? "Joker" : `${tile.suit} ${tile.value}`;
+      const usefulForHand1 = best1.matched.some(m => m.includes(tileLabel));
+      const usefulForHand2 = best2.missing.some(m => m.includes(tileLabel));
 
-    if (!usefulForHand1 && usefulForHand2) {
-      const idx = currentPlayer.hand.findIndex(t => t.id === tile.id);
-      if (idx !== -1) {
-        const [moved] = currentPlayer.hand.splice(idx, 1);
-        partner.hand.push(moved);
+      if (!usefulForHand1 && usefulForHand2) {
+        const idx = currentPlayer.hand.findIndex(t => t.id === tile.id);
+        if (idx !== -1) {
+          const [moved] = currentPlayer.hand.splice(idx, 1);
+          partner.hand.push(moved);
+        }
       }
     }
-  }
 
-  for (const tile of [...partner.hand]) {
-    if (partner.hand.length <= 1) break;
+    for (const tile of [...partner.hand]) {
+      if (partner.hand.length <= 1) break;
 
-    const tileLabel = tile.suit === "Joker" ? "Joker" : `${tile.suit} ${tile.value}`;
-    const usefulForHand2 = best2.matched.some(m => m.includes(tileLabel));
-    const usefulForHand1 = best1.missing.some(m => m.includes(tileLabel));
+      const tileLabel = tile.suit === "Joker" ? "Joker" : `${tile.suit} ${tile.value}`;
+      const usefulForHand2 = best2.matched.some(m => m.includes(tileLabel));
+      const usefulForHand1 = best1.missing.some(m => m.includes(tileLabel));
 
-    if (!usefulForHand2 && usefulForHand1) {
-      const idx = partner.hand.findIndex(t => t.id === tile.id);
-      if (idx !== -1) {
-        const [moved] = partner.hand.splice(idx, 1);
-        currentPlayer.hand.push(moved);
+      if (!usefulForHand2 && usefulForHand1) {
+        const idx = partner.hand.findIndex(t => t.id === tile.id);
+        if (idx !== -1) {
+          const [moved] = partner.hand.splice(idx, 1);
+          currentPlayer.hand.push(moved);
+        }
       }
     }
+  } catch (error) {
+    console.error("[bot] Error in executeBotTransfers, skipping:", error);
   }
 }
 
