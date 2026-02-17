@@ -252,7 +252,7 @@ export default function LobbyPage({ game, onShowTutorial, onShowLessons }: Lobby
                   className="flex-1"
                   data-testid="button-mode-4player"
                 >
-                  4-Player
+                  4-Player (American)
                 </Button>
                 <Button
                   variant={gameMode === "2-player" ? "default" : "outline"}
