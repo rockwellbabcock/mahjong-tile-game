@@ -21,6 +21,7 @@ export default function LobbyPage({ game }: LobbyPageProps) {
   const [copied, setCopied] = useState(false);
   const [gameMode, setGameMode] = useState<GameMode>("4-player");
   const [fillWithBots, setFillWithBots] = useState(false);
+  const [includeBlanks, setIncludeBlanks] = useState(true);
   const [, setLocation] = useLocation();
 
   const { lobbyState, roomCode, error, playerCount, createRoom, joinRoom, gameState, gameEnded } = game;
@@ -28,7 +29,7 @@ export default function LobbyPage({ game }: LobbyPageProps) {
   function handleCreate() {
     if (!name.trim()) return;
     localStorage.setItem("mahjong-player-name", name.trim());
-    const config: RoomConfig = { gameMode, fillWithBots };
+    const config: RoomConfig = { gameMode, fillWithBots, includeBlanks };
     createRoom(name.trim(), config);
   }
 
@@ -263,6 +264,29 @@ export default function LobbyPage({ game }: LobbyPageProps) {
                 Fill empty spots with bots
               </label>
               <Bot className="w-4 h-4 text-muted-foreground shrink-0" />
+            </div>
+
+            <div className="flex items-center gap-3 py-1">
+              <button
+                type="button"
+                role="checkbox"
+                aria-checked={includeBlanks}
+                onClick={() => setIncludeBlanks(!includeBlanks)}
+                className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
+                  includeBlanks
+                    ? "bg-primary border-primary text-primary-foreground"
+                    : "border-muted-foreground/40 bg-transparent"
+                }`}
+                data-testid="checkbox-include-blanks"
+              >
+                {includeBlanks && <Check className="w-3 h-3" />}
+              </button>
+              <label
+                className="text-sm text-foreground cursor-pointer select-none"
+                onClick={() => setIncludeBlanks(!includeBlanks)}
+              >
+                Include Blanks (optional - some players prefer without)
+              </label>
             </div>
 
             <div className="border-t border-border pt-4">

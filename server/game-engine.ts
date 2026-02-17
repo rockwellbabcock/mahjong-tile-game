@@ -9,7 +9,7 @@ const DRAGONS: TileValue[] = ["Red", "Green", "White"];
 
 const BOT_NAMES = ["Bot Yi", "Bot Er", "Bot San", "Bot Si"];
 
-function generateDeck(): Tile[] {
+function generateDeck(includeBlanks: boolean = true): Tile[] {
   const deck: Tile[] = [];
   let idCounter = 1;
 
@@ -36,6 +36,10 @@ function generateDeck(): Tile[] {
   (["Plum", "Orchid", "Chrysanthemum", "Bamboo", "Lily", "Lotus", "Peony", "Jasmine"] as const).forEach((name) => addTile("Flower", name, 1));
   addTile("Joker", null, 8);
 
+  if (includeBlanks) {
+    addTile("Blank", null, 6);
+  }
+
   return shuffle(deck);
 }
 
@@ -50,7 +54,7 @@ function shuffle(array: Tile[]): Tile[] {
 
 function compareTiles(a: Tile, b: Tile): number {
   const suitOrder: Record<string, number> = {
-    Joker: 0, Flower: 1, Dragon: 2, Wind: 3, Bam: 4, Crak: 5, Dot: 6,
+    Joker: 0, Blank: 1, Flower: 2, Dragon: 3, Wind: 4, Bam: 5, Crak: 6, Dot: 7,
   };
   if (suitOrder[a.suit] !== suitOrder[b.suit]) {
     return suitOrder[a.suit] - suitOrder[b.suit];
@@ -92,7 +96,7 @@ export interface GameRoom {
 
 const rooms = new Map<string, GameRoom>();
 
-const DEFAULT_CONFIG: RoomConfig = { gameMode: "4-player", fillWithBots: false };
+const DEFAULT_CONFIG: RoomConfig = { gameMode: "4-player", fillWithBots: false, includeBlanks: true };
 
 function deduplicateName(name: string, existingPlayers: PlayerState[]): string {
   const existingNames = existingPlayers.map(p => p.name);
@@ -497,7 +501,8 @@ export function startGame(roomCode: string): boolean {
   if (room.state.players.length !== 4) return false;
   if (room.state.started) return false;
 
-  const deck = generateDeck();
+  const includeBlanks = room.state.config?.includeBlanks ?? true;
+  const deck = generateDeck(includeBlanks);
 
   for (const player of room.state.players) {
     player.hand = deck.splice(0, 13).sort(compareTiles);
@@ -1031,7 +1036,8 @@ export function resetGame(roomCode: string): boolean {
   room.botTimers.forEach((timer) => clearTimeout(timer));
   room.botTimers.clear();
 
-  const deck = generateDeck();
+  const includeBlanks = room.state.config?.includeBlanks ?? true;
+  const deck = generateDeck(includeBlanks);
   for (const player of room.state.players) {
     player.hand = deck.splice(0, 13).sort(compareTiles);
     player.exposures = [];

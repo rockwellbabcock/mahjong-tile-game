@@ -15,7 +15,7 @@ export type InsertGame = z.infer<typeof insertGameSchema>;
 
 // --- Game Logic Types (Shared) ---
 
-export type Suit = "Bam" | "Crak" | "Dot" | "Wind" | "Dragon" | "Flower" | "Joker";
+export type Suit = "Bam" | "Crak" | "Dot" | "Wind" | "Dragon" | "Flower" | "Joker" | "Blank";
 export type WindValue = "North" | "South" | "East" | "West";
 export type DragonValue = "Green" | "Red" | "White";
 
@@ -85,6 +85,7 @@ export interface ExposureGroup {
 export interface RoomConfig {
   gameMode: GameMode;
   fillWithBots: boolean;
+  includeBlanks: boolean;
 }
 
 export interface PlayerState {

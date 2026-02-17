@@ -26,6 +26,7 @@ const suitColors: Record<string, string> = {
   Dragon: "text-purple-800 border-purple-300 bg-purple-50",
   Flower: "text-fuchsia-700 border-fuchsia-300 bg-fuchsia-50",
   Joker: "text-amber-700 border-amber-300 bg-amber-50",
+  Blank: "text-gray-400 border-gray-300 bg-gray-50",
 };
 
 const classicSuitColors: Record<string, string> = {
@@ -36,6 +37,7 @@ const classicSuitColors: Record<string, string> = {
   Dragon: "text-purple-800 border-purple-300",
   Flower: "text-fuchsia-700 border-fuchsia-200",
   Joker: "text-amber-700 border-amber-200 bg-amber-50",
+  Blank: "text-gray-400 border-gray-200",
 };
 
 const classicSuitIcons: Record<string, string> = {
@@ -46,6 +48,7 @@ const classicSuitIcons: Record<string, string> = {
   Dragon: "\uD83D\uDC09",
   Flower: "\uD83C\uDF3A",
   Joker: "\uD83C\uDCCF",
+  Blank: " ",
 };
 
 const flowerIcons: Record<string, string> = {
@@ -104,6 +107,12 @@ function renderClassic(tile: TileType, size: "xs" | "sm" | "md" | "lg") {
     icon = flowerIcons[name] || "\uD83C\uDF3A";
     colorKey = "Flower";
     displayValue = name;
+  }
+
+  if (tile.suit === "Blank") {
+    displayValue = null;
+    icon = " ";
+    colorKey = "Blank";
   }
 
   const sizeClasses = {
@@ -173,7 +182,10 @@ function renderEmoji(tile: TileType, size: "xs" | "sm" | "md" | "lg") {
   let extraClass = "";
   let colorKey: string = tile.suit;
 
-  if (tile.suit === "Joker") {
+  if (tile.suit === "Blank") {
+    mainContent = " ";
+    bottomLabel = "Blank";
+  } else if (tile.suit === "Joker") {
     mainContent = "\uD83C\uDCCF";
     bottomLabel = "Joker";
   } else if (tile.suit === "Flower") {
@@ -223,7 +235,8 @@ function renderText(tile: TileType, size: "xs" | "sm" | "md" | "lg") {
   let label = "";
   let colorKey: string = tile.suit;
 
-  if (tile.suit === "Joker") label = "Joker";
+  if (tile.suit === "Blank") label = "Blank";
+  else if (tile.suit === "Joker") label = "Joker";
   else if (tile.suit === "Flower") {
     label = String(tile.value);
     colorKey = "Flower";
