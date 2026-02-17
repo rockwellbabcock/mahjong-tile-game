@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowUpDown, Lightbulb, Palette, Copy, Check, Hand, WifiOff, Clock, X, Bot, Eye, Gem, Layers, FlaskConical, Repeat2, Flag, Loader2 } from "lucide-react";
 import { useTileStyle } from "@/hooks/use-tile-style";
 import { useTheme } from "@/hooks/use-theme";
+import { useMatTheme, MAT_COLORS, MAT_LABELS } from "@/hooks/use-mat-theme";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 
 interface MultiplayerBoardProps {
@@ -99,6 +100,8 @@ export function MultiplayerBoard({
 }: MultiplayerBoardProps) {
   const { tileStyle, cycleTileStyle } = useTileStyle();
   const { theme, toggleTheme } = useTheme();
+  const { matTheme, cycleMatTheme } = useMatTheme();
+  const mat = MAT_COLORS[matTheme];
   const [copied, setCopied] = useState(false);
   const [showDiscardMobile, setShowDiscardMobile] = useState(false);
   const [jokerSwapTarget, setJokerSwapTarget] = useState<{ seat: PlayerSeat; exposureIndex: number; matchSuit: string; matchValue: string | number | null } | null>(null);
@@ -328,7 +331,7 @@ export function MultiplayerBoard({
   return (
     <div className="flex flex-col h-[100dvh] w-full bg-stone-800" data-testid="game-board">
 
-      <div className="flex items-center justify-between gap-2 px-2 py-1.5 bg-stone-900/90 border-b border-stone-700 flex-wrap z-10">
+      <div className={`flex items-center justify-between gap-2 px-2 py-1.5 ${mat.headerBg} border-b ${mat.headerBorder} flex-wrap z-10`}>
         <div className="flex items-center gap-2">
           <h1 className="text-sm sm:text-base font-bold text-white tracking-wide" data-testid="text-title">
             American Mahjong
@@ -409,8 +412,16 @@ export function MultiplayerBoard({
           <Button variant="outline" size="sm" onClick={cycleTileStyle}
             className="h-7 px-2 text-xs bg-stone-800 border-stone-600 text-stone-300 hover:text-white"
             data-testid="button-tile-style"
+            title={`Tile Style: ${tileStyle}`}
           >
             <Palette className="w-3 h-3" />
+          </Button>
+          <Button variant="outline" size="sm" onClick={cycleMatTheme}
+            className="h-7 px-2 text-xs bg-stone-800 border-stone-600 text-stone-300 hover:text-white"
+            data-testid="button-mat-theme"
+            title={MAT_LABELS[matTheme]}
+          >
+            <Layers className="w-3 h-3" />
           </Button>
           <Button
             variant="outline"
@@ -546,11 +557,11 @@ export function MultiplayerBoard({
       <div className="flex-1 flex flex-col min-h-0">
         <div className="flex-1 relative overflow-hidden" style={{ perspective: "900px" }}>
           <div
-            className="absolute inset-0 bg-gradient-to-b from-emerald-900 via-emerald-800 to-emerald-700 border-4 sm:border-8 border-stone-600 shadow-inner"
+            className={`absolute inset-0 bg-gradient-to-b ${mat.tableFrom} ${mat.tableVia} ${mat.tableTo} border-4 sm:border-8 ${mat.borderColor} shadow-inner`}
             style={{ transform: "rotateX(8deg)", transformOrigin: "center bottom" }}
           >
             <div className="absolute inset-0 opacity-15" style={{
-              backgroundImage: "radial-gradient(circle at 2px 2px, rgba(0,0,0,0.15) 1px, transparent 0)",
+              backgroundImage: `radial-gradient(circle at 2px 2px, ${mat.dotColor} 1px, transparent 0)`,
               backgroundSize: "10px 10px",
             }} />
             <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/5 pointer-events-none" />
@@ -561,7 +572,7 @@ export function MultiplayerBoard({
                   <div className="flex justify-center pt-1" data-testid="player-card-opponent">
                     <div className={`flex items-center gap-1.5 px-3 py-1 rounded-md ${
                       otherPlayers.some(p => p.seat === gameState.currentTurn)
-                        ? "bg-emerald-500/20 border border-emerald-400/40"
+                        ? mat.activeGlow
                         : "bg-black/30 border border-white/10"
                     }`}>
                       {opponentInfo && (
@@ -675,7 +686,7 @@ export function MultiplayerBoard({
                   <div className="flex justify-center pb-1">
                     <div className={`flex items-center gap-1.5 px-3 py-1 rounded-md ${
                       gameState.mySeat === gameState.currentTurn
-                        ? "bg-emerald-500/20 border border-emerald-400/40"
+                        ? mat.activeGlow
                         : "bg-black/30 border border-white/10"
                     }`}>
                       <span className="text-xs font-bold text-white/90">
@@ -714,7 +725,7 @@ export function MultiplayerBoard({
                         <div className="flex items-start gap-2" data-testid={`player-card-${acrossPlayer.seat.toLowerCase()}`}>
                           <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md ${
                             acrossPlayer.seat === gameState.currentTurn
-                              ? "bg-emerald-500/20 border border-emerald-400/40"
+                              ? mat.activeGlow
                               : "bg-black/30 border border-white/10"
                           }`}>
                             <div className={`w-2 h-2 rounded-full ${acrossPlayer.connected ? (acrossPlayer.isBot ? "bg-blue-400" : "bg-emerald-400") : "bg-red-400"}`} />
@@ -763,7 +774,7 @@ export function MultiplayerBoard({
                             <>
                               <div className={`flex items-center gap-1 px-2 py-1 rounded-md ${
                                 leftPlayer.seat === gameState.currentTurn
-                                  ? "bg-emerald-500/20 border border-emerald-400/40"
+                                  ? mat.activeGlow
                                   : "bg-black/30 border border-white/10"
                               }`} data-testid={`player-card-${leftPlayer.seat.toLowerCase()}`}>
                                 <div className={`w-2 h-2 rounded-full ${leftPlayer.connected ? (leftPlayer.isBot ? "bg-blue-400" : "bg-emerald-400") : "bg-red-400"}`} />
@@ -891,7 +902,7 @@ export function MultiplayerBoard({
                             <>
                               <div className={`flex items-center gap-1 px-2 py-1 rounded-md ${
                                 rightPlayer.seat === gameState.currentTurn
-                                  ? "bg-emerald-500/20 border border-emerald-400/40"
+                                  ? mat.activeGlow
                                   : "bg-black/30 border border-white/10"
                               }`} data-testid={`player-card-${rightPlayer.seat.toLowerCase()}`}>
                                 <div className={`w-2 h-2 rounded-full ${rightPlayer.connected ? (rightPlayer.isBot ? "bg-blue-400" : "bg-emerald-400") : "bg-red-400"}`} />

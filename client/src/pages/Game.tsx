@@ -6,16 +6,24 @@ import { CharlestonOverlay } from "@/components/CharlestonOverlay";
 import { CallingOverlay } from "@/components/CallingOverlay";
 import { TileStyleContext, useTileStyleState } from "@/hooks/use-tile-style";
 import { ThemeContext, useThemeState } from "@/hooks/use-theme";
+import { MatThemeContext, useMatThemeState, MAT_TILE_PAIRS } from "@/hooks/use-mat-theme";
 import LobbyPage from "./Lobby";
 
 export default function GamePage() {
   const game = useMultiplayerGame();
   const tileStyleValue = useTileStyleState();
   const themeValue = useThemeState();
+  const matThemeValue = useMatThemeState();
 
   useEffect(() => {
     document.documentElement.classList.toggle("theme-jade", themeValue.theme === "jade");
   }, [themeValue.theme]);
+
+  useEffect(() => {
+    if (matThemeValue.autoSync) {
+      matThemeValue.syncWithTileStyle(tileStyleValue.tileStyle);
+    }
+  }, [tileStyleValue.tileStyle, matThemeValue.autoSync]);
 
   const {
     lobbyState,
@@ -104,7 +112,8 @@ export default function GamePage() {
   return (
     <ThemeContext.Provider value={themeValue}>
       <TileStyleContext.Provider value={tileStyleValue}>
-        <div className="h-screen bg-background text-foreground overflow-hidden">
+        <MatThemeContext.Provider value={matThemeValue}>
+          <div className="h-screen bg-background text-foreground overflow-hidden">
           <MultiplayerBoard
             gameState={gameState}
             isMyTurn={isMyTurn}
@@ -164,7 +173,8 @@ export default function GamePage() {
               onVotePlayAgain={votePlayAgain}
             />
           )}
-        </div>
+          </div>
+        </MatThemeContext.Provider>
       </TileStyleContext.Provider>
     </ThemeContext.Provider>
   );
