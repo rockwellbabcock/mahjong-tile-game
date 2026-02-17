@@ -81,6 +81,8 @@ function handleCallingResolution(io: Server<ClientToServerEvents, ServerToClient
           winnerSeat: result.winnerClaim.seat,
           patternName: winCheck.patternName || "Mahjong",
           description: winCheck.description || "",
+          rack1Pattern: winCheck.rack1Pattern,
+          rack2Pattern: winCheck.rack2Pattern,
         });
       }
     }
@@ -114,6 +116,8 @@ function handleBotTurns(io: Server<ClientToServerEvents, ServerToClientEvents>, 
           winnerSeat: winCheck.botSeat,
           patternName: winCheck.patternName || "Unknown",
           description: winCheck.description || "",
+          rack1Pattern: winCheck.rack1Pattern,
+          rack2Pattern: winCheck.rack2Pattern,
         });
         broadcastState(io, roomCode);
         return;
@@ -297,6 +301,8 @@ export function setupSocket(httpServer: HttpServer): Server<ClientToServerEvents
             winnerSeat: player.seat,
             patternName: winResult.patternName || "Unknown",
             description: winResult.description || "",
+            rack1Pattern: winResult.rack1Pattern,
+            rack2Pattern: winResult.rack2Pattern,
           });
         }
       }
@@ -364,9 +370,18 @@ export function setupSocket(httpServer: HttpServer): Server<ClientToServerEvents
       const roomCode = playerRooms.get(socket.id);
       if (!roomCode) return;
 
-      const success = testSiameseWin(roomCode, socket.id);
-      if (success) {
+      const result = testSiameseWin(roomCode, socket.id);
+      if (result.success) {
         log(`Test Siamese win triggered in room ${roomCode}`, "socket");
+        io.to(roomCode).emit("game:win", {
+          winnerId: result.winnerId,
+          winnerName: result.winnerName,
+          winnerSeat: result.winnerSeat,
+          patternName: result.patternName,
+          description: result.description,
+          rack1Pattern: result.rack1Pattern,
+          rack2Pattern: result.rack2Pattern,
+        });
         broadcastState(io, roomCode);
       }
     });

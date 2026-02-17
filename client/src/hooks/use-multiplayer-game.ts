@@ -25,6 +25,8 @@ export function useMultiplayerGame() {
     winnerSeat: PlayerSeat;
     patternName: string;
     description: string;
+    rack1Pattern?: { name: string; description: string };
+    rack2Pattern?: { name: string; description: string };
   } | null>(null);
   const [showHints, setShowHints] = useState(false);
   const [autoShowHints, setAutoShowHints] = useState(false);

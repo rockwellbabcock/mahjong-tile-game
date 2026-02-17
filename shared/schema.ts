@@ -200,6 +200,7 @@ export interface ClientToServerEvents {
   "game:swap-joker": (data: { myTileId: string; targetSeat: PlayerSeat; exposureIndex: number }) => void;
   "game:reorder": (data: { tileIds: string[]; seat?: PlayerSeat }) => void;
   "game:test-siamese-win": () => void;
+  "game:forfeit": () => void;
   "game:charleston-select": (data: { tileId: string }) => void;
   "game:charleston-ready": () => void;
   "game:charleston-skip": () => void;

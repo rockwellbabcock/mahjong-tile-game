@@ -1019,7 +1019,13 @@ function getCharlestonView(charleston: CharlestonState, mySeat: PlayerSeat): Cli
   };
 }
 
-export function checkWinForPlayer(roomCode: string, playerId: string, forSeat?: PlayerSeat): { won: boolean; patternName?: string; description?: string } {
+export function checkWinForPlayer(roomCode: string, playerId: string, forSeat?: PlayerSeat): {
+  won: boolean;
+  patternName?: string;
+  description?: string;
+  rack1Pattern?: { name: string; description: string };
+  rack2Pattern?: { name: string; description: string };
+} {
   const room = rooms.get(roomCode);
   if (!room) return { won: false };
 
@@ -1050,7 +1056,9 @@ export function checkWinForPlayer(roomCode: string, playerId: string, forSeat?: 
       return {
         won: true,
         patternName: `${result.patternName} + ${otherResult.patternName}`,
-        description: `Both hands won! Hand 1: ${result.description}. Hand 2: ${otherResult.description}`,
+        description: `Both racks won! Rack 1: ${result.description}. Rack 2: ${otherResult.description}`,
+        rack1Pattern: { name: result.patternName, description: result.description },
+        rack2Pattern: { name: otherResult.patternName, description: otherResult.description },
       };
     }
   }
@@ -1090,20 +1098,29 @@ export function resetGame(roomCode: string): boolean {
   return true;
 }
 
-export function testSiameseWin(roomCode: string, playerId: string): boolean {
+export function testSiameseWin(roomCode: string, playerId: string): {
+  success: boolean;
+  winnerId?: string;
+  winnerName?: string;
+  winnerSeat?: PlayerSeat;
+  patternName?: string;
+  description?: string;
+  rack1Pattern?: { name: string; description: string };
+  rack2Pattern?: { name: string; description: string };
+} {
   const room = rooms.get(roomCode);
-  if (!room) return false;
-  if (!room.state.started) return false;
-  if (room.state.config.gameMode !== "2-player") return false;
+  if (!room) return { success: false };
+  if (!room.state.started) return { success: false };
+  if (room.state.config.gameMode !== "2-player") return { success: false };
 
   const mainPlayer = room.state.players.find(p => p.id === playerId);
-  if (!mainPlayer) return false;
+  if (!mainPlayer) return { success: false };
 
   const controllerId = mainPlayer.controlledBy || mainPlayer.id;
   const mySeats = room.state.players.filter(
     p => p.id === controllerId || p.controlledBy === controllerId
   );
-  if (mySeats.length !== 2) return false;
+  if (mySeats.length !== 2) return { success: false };
 
   room.botTimers.forEach((timer) => clearTimeout(timer));
   room.botTimers.clear();
@@ -1126,16 +1143,24 @@ export function testSiameseWin(roomCode: string, playerId: string): boolean {
   ];
 
   const hand2: Tile[] = [
-    makeTile("Crak", 1), makeTile("Crak", 1),
-    makeTile("Crak", 2), makeTile("Crak", 2),
-    makeTile("Crak", 3), makeTile("Crak", 3),
-    makeTile("Crak", 4), makeTile("Crak", 4),
-    makeTile("Crak", 5), makeTile("Crak", 5), makeTile("Crak", 5),
-    makeTile("Crak", 6), makeTile("Crak", 6), makeTile("Crak", 6),
+    makeTile("Crak", 4), makeTile("Crak", 4), makeTile("Crak", 4),
+    makeTile("Crak", 5), makeTile("Crak", 5),
+    makeTile("Crak", 6), makeTile("Crak", 6),
+    makeTile("Crak", 7), makeTile("Crak", 7),
+    makeTile("Crak", 8), makeTile("Crak", 8),
+    makeTile("Crak", 9), makeTile("Crak", 9), makeTile("Crak", 9),
   ];
 
   mySeats[0].hand = hand1.sort(compareTiles);
   mySeats[1].hand = hand2.sort(compareTiles);
+
+  const result1 = checkForWin(mySeats[0].hand);
+  const result2 = checkForWin(mySeats[1].hand);
+
+  if (!result1 || !result2) {
+    log(`Test Siamese win FAILED pattern validation: rack1=${!!result1}, rack2=${!!result2}`, "game");
+    return { success: false };
+  }
 
   const opponentSeats = room.state.players.filter(
     p => p.id !== controllerId && p.controlledBy !== controllerId
@@ -1155,21 +1180,32 @@ export function testSiameseWin(roomCode: string, playerId: string): boolean {
   ];
 
   const hand4: Tile[] = [
-    makeTile("Bam", 4), makeTile("Bam", 4), makeTile("Bam", 4),
-    makeTile("Bam", 5), makeTile("Bam", 5),
-    makeTile("Bam", 6), makeTile("Bam", 6),
-    makeTile("Bam", 7), makeTile("Bam", 7),
-    makeTile("Bam", 8), makeTile("Bam", 8),
-    makeTile("Bam", 9), makeTile("Bam", 9), makeTile("Bam", 9),
+    makeTile("Dot", 4), makeTile("Dot", 4), makeTile("Dot", 4),
+    makeTile("Dot", 5), makeTile("Dot", 5),
+    makeTile("Dot", 6), makeTile("Dot", 6),
+    makeTile("Dot", 7), makeTile("Dot", 7),
+    makeTile("Dot", 8), makeTile("Dot", 8),
+    makeTile("Dot", 9), makeTile("Dot", 9), makeTile("Dot", 9),
   ];
 
   if (oppSeats.length >= 1) oppSeats[0].hand = hand3.sort(compareTiles);
   if (oppSeats.length >= 2) oppSeats[1].hand = hand4.sort(compareTiles);
 
-  room.state.currentTurn = mySeats[0].seat;
-  room.state.phase = "discard";
+  room.state.phase = "won";
+  const mainCtrl = room.state.players.find(p => p.id === controllerId);
+  room.state.winnerId = controllerId;
+  room.state.winnerSeat = mainCtrl?.seat || mySeats[0].seat;
 
-  return true;
+  return {
+    success: true,
+    winnerId: controllerId,
+    winnerName: mainCtrl?.name || mySeats[0].name,
+    winnerSeat: mainCtrl?.seat || mySeats[0].seat,
+    patternName: `${result1.patternName} + ${result2.patternName}`,
+    description: `Both racks won! Rack 1: ${result1.description}. Rack 2: ${result2.description}`,
+    rack1Pattern: { name: result1.patternName, description: result1.description },
+    rack2Pattern: { name: result2.patternName, description: result2.description },
+  };
 }
 
 export function isCurrentTurnBot(roomCode: string): boolean {
@@ -1645,7 +1681,15 @@ export function swapJoker(
   return { success: true };
 }
 
-export function checkBotWin(roomCode: string): { won: boolean; botName?: string; botSeat?: PlayerSeat; patternName?: string; description?: string } {
+export function checkBotWin(roomCode: string): {
+  won: boolean;
+  botName?: string;
+  botSeat?: PlayerSeat;
+  patternName?: string;
+  description?: string;
+  rack1Pattern?: { name: string; description: string };
+  rack2Pattern?: { name: string; description: string };
+} {
   const room = rooms.get(roomCode);
   if (!room) return { won: false };
 
@@ -1670,7 +1714,9 @@ export function checkBotWin(roomCode: string): { won: boolean; botName?: string;
           botName: bot.name,
           botSeat: bot.seat,
           patternName: `${result.patternName} + ${partnerResult.patternName}`,
-          description: `Both hands won! Hand 1: ${result.description}. Hand 2: ${partnerResult.description}`,
+          description: `Both racks won! Rack 1: ${result.description}. Rack 2: ${partnerResult.description}`,
+          rack1Pattern: { name: result.patternName, description: result.description },
+          rack2Pattern: { name: partnerResult.patternName, description: partnerResult.description },
         };
       }
     }

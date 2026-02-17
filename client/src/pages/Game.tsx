@@ -75,6 +75,8 @@ export default function GamePage() {
         winnerName: winInfo.winnerName,
         winnerSeat: winInfo.winnerSeat,
         isMe: winInfo.winnerId === gameState.players.find(p => p.seat === gameState.mySeat)?.id,
+        rack1Pattern: winInfo.rack1Pattern,
+        rack2Pattern: winInfo.rack2Pattern,
       }
     : null;
 

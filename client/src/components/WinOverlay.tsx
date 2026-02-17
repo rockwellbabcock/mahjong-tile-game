@@ -3,14 +3,26 @@ import { type PatternMatch } from "@/lib/patterns";
 import { Button } from "@/components/ui/button";
 import { RotateCcw, Trophy } from "lucide-react";
 
+interface RackPattern {
+  name: string;
+  description: string;
+}
+
 interface WinOverlayProps {
-  result: PatternMatch & { winnerName?: string; winnerSeat?: string; isMe?: boolean };
+  result: PatternMatch & {
+    winnerName?: string;
+    winnerSeat?: string;
+    isMe?: boolean;
+    rack1Pattern?: RackPattern;
+    rack2Pattern?: RackPattern;
+  };
   onPlayAgain: () => void;
 }
 
 export function WinOverlay({ result, onPlayAgain }: WinOverlayProps) {
   const isMultiplayer = result.winnerName !== undefined;
   const isMe = result.isMe ?? true;
+  const hasSiamesePatterns = result.rack1Pattern && result.rack2Pattern;
 
   return (
     <motion.div
@@ -38,25 +50,58 @@ export function WinOverlay({ result, onPlayAgain }: WinOverlayProps) {
           {isMe ? "MAHJONG!" : "Game Over"}
         </h2>
 
-        <p
-          className="text-lg font-semibold text-amber-700 dark:text-amber-400 mb-1"
-          data-testid="text-win-pattern"
-        >
-          {isMultiplayer
-            ? isMe
-              ? `You won with: ${result.patternName}`
-              : `${result.winnerName} (${result.winnerSeat}) won with: ${result.patternName}`
-            : `You won with: ${result.patternName}`
-          }
-        </p>
+        {hasSiamesePatterns ? (
+          <div className="mb-4" data-testid="text-win-pattern">
+            <p className="text-lg font-semibold text-amber-700 dark:text-amber-400 mb-3">
+              {isMultiplayer
+                ? isMe
+                  ? "Both racks won!"
+                  : `${result.winnerName} (${result.winnerSeat}) won with both racks!`
+                : "Both racks won!"
+              }
+            </p>
+            <div className="space-y-3 text-left">
+              <div className="bg-muted/50 rounded-md p-3" data-testid="text-rack1-pattern">
+                <p className="text-sm font-semibold text-foreground mb-1">
+                  Rack 1: {result.rack1Pattern!.name}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {result.rack1Pattern!.description}
+                </p>
+              </div>
+              <div className="bg-muted/50 rounded-md p-3" data-testid="text-rack2-pattern">
+                <p className="text-sm font-semibold text-foreground mb-1">
+                  Rack 2: {result.rack2Pattern!.name}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {result.rack2Pattern!.description}
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            <p
+              className="text-lg font-semibold text-amber-700 dark:text-amber-400 mb-1"
+              data-testid="text-win-pattern"
+            >
+              {isMultiplayer
+                ? isMe
+                  ? `You won with: ${result.patternName}`
+                  : `${result.winnerName} (${result.winnerSeat}) won with: ${result.patternName}`
+                : `You won with: ${result.patternName}`
+              }
+            </p>
 
-        {result.description && (
-          <p
-            className="text-sm text-muted-foreground mb-6"
-            data-testid="text-win-description"
-          >
-            {result.description}
-          </p>
+            {result.description && (
+              <p
+                className="text-sm text-muted-foreground mb-6"
+                data-testid="text-win-description"
+              >
+                {result.description}
+              </p>
+            )}
+          </>
         )}
 
         {result.matched.length > 0 && (
