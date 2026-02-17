@@ -1454,14 +1454,18 @@ export function resolveCallingPhase(roomCode: string): { resolved: boolean; winn
   if (winnerClaim.claimType === "mahjong") {
     claimPlayer.hand.push(calling.discardedTile);
   } else {
-    const exposureGroup: Tile[] = [calling.discardedTile];
+    const tiles: Tile[] = [calling.discardedTile];
     for (const tid of winnerClaim.tileIds) {
       const tileIdx = claimPlayer.hand.findIndex(t => t.id === tid);
       if (tileIdx !== -1) {
-        exposureGroup.push(claimPlayer.hand.splice(tileIdx, 1)[0]);
+        tiles.push(claimPlayer.hand.splice(tileIdx, 1)[0]);
       }
     }
-    claimPlayer.exposures.push(exposureGroup);
+    claimPlayer.exposures.push({
+      tiles,
+      fromDiscardId: calling.discardedTile.id,
+      claimType: winnerClaim.claimType,
+    });
   }
 
   room.state.currentTurn = winnerClaim.seat;
@@ -1565,13 +1569,13 @@ export function swapJoker(
     return { success: false, error: "Invalid exposure group" };
   }
 
-  const exposureGroup = targetPlayer.exposures[exposureIndex];
-  const jokerIdx = exposureGroup.findIndex(t => t.isJoker);
+  const exposure = targetPlayer.exposures[exposureIndex];
+  const jokerIdx = exposure.tiles.findIndex(t => t.isJoker);
   if (jokerIdx === -1) {
     return { success: false, error: "No Joker in that exposure group" };
   }
 
-  const nonJokerTiles = exposureGroup.filter(t => !t.isJoker);
+  const nonJokerTiles = exposure.tiles.filter(t => !t.isJoker);
   if (nonJokerTiles.length === 0) {
     return { success: false, error: "Cannot determine what tile the Joker represents" };
   }
@@ -1596,8 +1600,8 @@ export function swapJoker(
     return { success: false, error: "Your tile must match the exposure group's tile type" };
   }
 
-  const jokerTile = exposureGroup[jokerIdx];
-  exposureGroup[jokerIdx] = player.hand.splice(swapTileIdx, 1)[0];
+  const jokerTile = exposure.tiles[jokerIdx];
+  exposure.tiles[jokerIdx] = player.hand.splice(swapTileIdx, 1)[0];
   player.hand.push(jokerTile);
   player.hand.sort(compareTiles);
 

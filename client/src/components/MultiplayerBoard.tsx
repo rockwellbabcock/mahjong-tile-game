@@ -466,51 +466,62 @@ export function MultiplayerBoard({
                       </div>
                     )}
                     {player.exposures.length > 0 && (
-                      <div className="mt-1.5 flex items-center gap-1 flex-wrap">
-                        {player.exposures.map((group, gi) => {
-                          const hasJoker = group.some(t => t.suit === "Joker");
-                          const nonJoker = group.find(t => !t.isJoker);
-                          const canSwap = isMyTurn && (gameState.phase === "draw" || gameState.phase === "discard") && hasJoker;
-                          const isSwapSelected = jokerSwapTarget?.seat === player.seat && jokerSwapTarget?.exposureIndex === gi;
-                          return (
-                            <div
-                              key={gi}
-                              className={`flex items-center gap-0.5 rounded-md px-1 py-0.5 ${
-                                isSwapSelected
-                                  ? "bg-amber-200/50 dark:bg-amber-800/30 ring-2 ring-amber-400 dark:ring-amber-600"
-                                  : canSwap
-                                    ? "bg-muted/30 cursor-pointer hover-elevate"
-                                    : "bg-muted/30"
-                              }`}
-                              onClick={() => {
-                                if (canSwap && nonJoker) {
-                                  if (isSwapSelected) {
-                                    setJokerSwapTarget(null);
-                                  } else {
-                                    setJokerSwapTarget({
-                                      seat: player.seat,
-                                      exposureIndex: gi,
-                                      matchSuit: nonJoker.suit,
-                                      matchValue: nonJoker.value,
-                                    });
+                      <div className="mt-1.5" data-testid={`exposed-sets-${player.seat.toLowerCase()}`}>
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Exposed</span>
+                        <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                          {player.exposures.map((group, gi) => {
+                            const hasJoker = group.tiles.some(t => t.suit === "Joker");
+                            const nonJoker = group.tiles.find(t => !t.isJoker);
+                            const canSwap = isMyTurn && (gameState.phase === "draw" || gameState.phase === "discard") && hasJoker;
+                            const isSwapSelected = jokerSwapTarget?.seat === player.seat && jokerSwapTarget?.exposureIndex === gi;
+                            return (
+                              <div
+                                key={gi}
+                                className={`flex items-center gap-0.5 rounded-md px-1 py-0.5 ${
+                                  isSwapSelected
+                                    ? "bg-amber-200/50 dark:bg-amber-800/30 ring-2 ring-amber-400 dark:ring-amber-600"
+                                    : canSwap
+                                      ? "bg-muted/30 cursor-pointer hover-elevate"
+                                      : "bg-muted/30"
+                                }`}
+                                onClick={() => {
+                                  if (canSwap && nonJoker) {
+                                    if (isSwapSelected) {
+                                      setJokerSwapTarget(null);
+                                    } else {
+                                      setJokerSwapTarget({
+                                        seat: player.seat,
+                                        exposureIndex: gi,
+                                        matchSuit: nonJoker.suit,
+                                        matchValue: nonJoker.value,
+                                      });
+                                    }
                                   }
-                                }
-                              }}
-                              data-testid={`exposure-group-${player.seat.toLowerCase()}-${gi}`}
-                            >
-                              {group.map(tile => (
-                                <div key={tile.id} className="relative">
-                                  <Tile tile={tile} size="xs" data-testid={`exposure-tile-${tile.id}`} />
-                                  {tile.isJoker && canSwap && (
-                                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-amber-500 rounded-full flex items-center justify-center" data-testid={`swap-indicator-${tile.id}`}>
-                                      <Repeat2 className="w-2 h-2 text-white" />
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          );
-                        })}
+                                }}
+                                data-testid={`exposure-group-${player.seat.toLowerCase()}-${gi}`}
+                              >
+                                {group.tiles.map(tile => (
+                                  <div key={tile.id} className="relative">
+                                    <Tile
+                                      tile={tile}
+                                      size="xs"
+                                      data-testid={`exposure-tile-${tile.id}`}
+                                    />
+                                    {tile.id === group.fromDiscardId && (
+                                      <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-orange-400" data-testid={`discard-marker-${tile.id}`} />
+                                    )}
+                                    {tile.isJoker && canSwap && (
+                                      <div className="absolute -top-1 -right-1 w-3 h-3 bg-amber-500 rounded-full flex items-center justify-center" data-testid={`swap-indicator-${tile.id}`}>
+                                        <Repeat2 className="w-2 h-2 text-white" />
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                                <span className="text-[9px] text-muted-foreground ml-0.5 capitalize">{group.claimType}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -665,6 +676,36 @@ export function MultiplayerBoard({
                   </span>
                 ) : null}
               </div>
+
+              {(() => {
+                const myPlayer = gameState.players.find(p => p.seat === displaySeat);
+                return myPlayer && myPlayer.exposures.length > 0 ? (
+                  <div className="mb-2" data-testid="my-exposed-sets">
+                    <div className="flex items-center justify-center gap-2 mb-1">
+                      <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Exposed Sets</span>
+                    </div>
+                    <div className="flex items-center justify-center gap-2 flex-wrap">
+                      {myPlayer.exposures.map((group, gi) => (
+                        <div
+                          key={gi}
+                          className="flex items-center gap-0.5 bg-muted/30 rounded-md px-1.5 py-1 border border-border"
+                          data-testid={`my-exposure-group-${gi}`}
+                        >
+                          {group.tiles.map(tile => (
+                            <div key={tile.id} className="relative">
+                              <Tile tile={tile} size={tileSize} data-testid={`my-exposure-tile-${tile.id}`} />
+                              {tile.id === group.fromDiscardId && (
+                                <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-orange-400 border border-orange-500" data-testid={`my-discard-marker-${tile.id}`} />
+                              )}
+                            </div>
+                          ))}
+                          <span className="text-[10px] text-muted-foreground ml-1 capitalize">{group.claimType}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null;
+              })()}
 
               <div className="flex items-end justify-center gap-1 w-full pb-2 flex-wrap">
                 <div className="flex items-center justify-center gap-0.5 sm:gap-1 p-2 sm:p-3 bg-card rounded-md border border-card-border flex-wrap" data-testid="hand-main">

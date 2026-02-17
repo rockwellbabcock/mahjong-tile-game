@@ -10,6 +10,7 @@ export interface PatternMatch {
   missing: string[];
   hint: string;
   contributingTileIds: string[];
+  concealedOnly?: boolean;
 }
 
 type TileKey = string;
@@ -30,6 +31,7 @@ interface ConcretePattern {
   name: string;
   description: string;
   required: RequiredTile[];
+  concealedOnly?: boolean;
 }
 
 const NUMBERED_SUITS: Suit[] = ["Bam", "Crak", "Dot"];
@@ -87,7 +89,7 @@ function buildConcretePatterns(): ConcretePattern[] {
     patterns.push({
       id: `seven-pairs-${suit}`,
       name: `Seven Pairs (${suit})`,
-      description: `Seven pairs using tiles 1 through 7 in ${suit} (14 tiles)`,
+      description: `Seven pairs using tiles 1 through 7 in ${suit} (14 tiles). Concealed only - no calling allowed.`,
       required: [
         { suit, value: 1, count: 2, label: `${suit} 1` },
         { suit, value: 2, count: 2, label: `${suit} 2` },
@@ -97,6 +99,7 @@ function buildConcretePatterns(): ConcretePattern[] {
         { suit, value: 6, count: 2, label: `${suit} 6` },
         { suit, value: 7, count: 2, label: `${suit} 7` },
       ],
+      concealedOnly: true,
     });
   }
 
@@ -259,6 +262,7 @@ function checkPatternMatch(hand: Tile[], pattern: ConcretePattern): PatternMatch
     missing,
     hint,
     contributingTileIds,
+    concealedOnly: pattern.concealedOnly,
   };
 }
 

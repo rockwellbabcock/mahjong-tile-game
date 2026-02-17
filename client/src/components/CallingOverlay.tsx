@@ -2,16 +2,17 @@ import { useState, useMemo } from "react";
 import { type Tile as TileType, type ClientCallingView, type ClaimType } from "@shared/schema";
 import { Tile } from "./Tile";
 import { Button } from "@/components/ui/button";
-import { Hand, ShieldCheck, SkipForward } from "lucide-react";
+import { Hand, ShieldCheck, SkipForward, Lock } from "lucide-react";
 
 interface CallingOverlayProps {
   callingState: ClientCallingView;
   hand: TileType[];
   onClaim: (claimType: ClaimType, tileIds: string[]) => void;
   onPass: () => void;
+  pursuingConcealedPattern?: boolean;
 }
 
-export function CallingOverlay({ callingState, hand, onClaim, onPass }: CallingOverlayProps) {
+export function CallingOverlay({ callingState, hand, onClaim, onPass, pursuingConcealedPattern }: CallingOverlayProps) {
   const [selectedTileIds, setSelectedTileIds] = useState<string[]>([]);
   const [selectedClaimType, setSelectedClaimType] = useState<ClaimType | null>(null);
 
@@ -120,33 +121,53 @@ export function CallingOverlay({ callingState, hand, onClaim, onPass }: CallingO
             </div>
           </div>
         ) : (
-          <div className="flex items-center justify-center gap-2 flex-wrap">
-            {canPung && (
-              <Button onClick={() => handleClaim("pung")} data-testid="button-claim-pung">
-                <Hand className="w-4 h-4 mr-1" />
-                Pung
-              </Button>
+          <div className="space-y-2">
+            {pursuingConcealedPattern && (
+              <div className="flex items-center justify-center gap-1.5 text-xs text-amber-600 dark:text-amber-400" data-testid="text-concealed-warning">
+                <Lock className="w-3 h-3" />
+                <span>Your closest pattern requires a concealed hand. Calling will break it.</span>
+              </div>
             )}
-            {canKong && (
-              <Button onClick={() => handleClaim("kong")} data-testid="button-claim-kong">
-                <Hand className="w-4 h-4 mr-1" />
-                Kong
+            <div className="flex items-center justify-center gap-2 flex-wrap">
+              {canPung && (
+                <Button
+                  onClick={() => handleClaim("pung")}
+                  disabled={pursuingConcealedPattern}
+                  data-testid="button-claim-pung"
+                >
+                  <Hand className="w-4 h-4 mr-1" />
+                  Pung
+                </Button>
+              )}
+              {canKong && (
+                <Button
+                  onClick={() => handleClaim("kong")}
+                  disabled={pursuingConcealedPattern}
+                  data-testid="button-claim-kong"
+                >
+                  <Hand className="w-4 h-4 mr-1" />
+                  Kong
+                </Button>
+              )}
+              {canQuint && (
+                <Button
+                  onClick={() => handleClaim("quint")}
+                  disabled={pursuingConcealedPattern}
+                  data-testid="button-claim-quint"
+                >
+                  <Hand className="w-4 h-4 mr-1" />
+                  Quint
+                </Button>
+              )}
+              <Button onClick={() => handleClaim("mahjong")} variant="default" data-testid="button-claim-mahjong">
+                <ShieldCheck className="w-4 h-4 mr-1" />
+                Mahjong!
               </Button>
-            )}
-            {canQuint && (
-              <Button onClick={() => handleClaim("quint")} data-testid="button-claim-quint">
-                <Hand className="w-4 h-4 mr-1" />
-                Quint
+              <Button variant="outline" onClick={onPass} data-testid="button-claim-pass">
+                <SkipForward className="w-4 h-4 mr-1" />
+                Pass
               </Button>
-            )}
-            <Button onClick={() => handleClaim("mahjong")} variant="default" data-testid="button-claim-mahjong">
-              <ShieldCheck className="w-4 h-4 mr-1" />
-              Mahjong!
-            </Button>
-            <Button variant="outline" onClick={onPass} data-testid="button-claim-pass">
-              <SkipForward className="w-4 h-4 mr-1" />
-              Pass
-            </Button>
+            </div>
           </div>
         )}
       </div>

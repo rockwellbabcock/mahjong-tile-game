@@ -120,6 +120,9 @@ export default function GamePage() {
               hand={gameState.myHand}
               onClaim={claimDiscardTile}
               onPass={passOnDiscardTile}
+              pursuingConcealedPattern={
+                hints.length > 0 && hints[0].concealedOnly === true
+              }
             />
           )}
 

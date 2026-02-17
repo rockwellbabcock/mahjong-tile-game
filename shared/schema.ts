@@ -77,6 +77,12 @@ export interface ClientCallingView {
   hasPassed: boolean;
 }
 
+export interface ExposureGroup {
+  tiles: Tile[];
+  fromDiscardId: string;
+  claimType: ClaimType;
+}
+
 export interface RoomConfig {
   gameMode: GameMode;
   fillWithBots: boolean;
@@ -87,7 +93,7 @@ export interface PlayerState {
   name: string;
   seat: PlayerSeat;
   hand: Tile[];
-  exposures: Tile[][];
+  exposures: ExposureGroup[];
   connected: boolean;
   rejoinToken?: string;
   isBot?: boolean;
@@ -131,7 +137,7 @@ export interface ClientRoomView {
     name: string;
     seat: PlayerSeat;
     handCount: number;
-    exposures: Tile[][];
+    exposures: ExposureGroup[];
     connected: boolean;
     isBot?: boolean;
     controlledBy?: string | null;
