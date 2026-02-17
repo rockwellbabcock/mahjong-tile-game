@@ -189,10 +189,10 @@ export default function LobbyPage({ game }: LobbyPageProps) {
             </Button>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-1" data-testid="text-lobby-title">
-            Mahjong
+            American Mahjong
           </h1>
           <p className="text-sm sm:text-base text-muted-foreground">
-            Play American Mahjong online
+            Play American Mahjong online with friends
           </p>
         </div>
 
