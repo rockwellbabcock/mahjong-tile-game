@@ -272,10 +272,11 @@ export function Tile({ tile, onClick, isInteractive = false, isRecent = false, s
     : renderText(tile, size);
 
   return (
-    <motion.button
+    <motion.div
+      role={isInteractive ? "button" : undefined}
+      tabIndex={isInteractive ? 0 : undefined}
       data-testid={`tile-${tile.id}`}
       onClick={isInteractive ? onClick : undefined}
-      disabled={!isInteractive}
       initial={{ opacity: 0, scale: 0.85 }}
       animate={{ opacity: 1, scale: 1 }}
       whileHover={isInteractive ? { y: -6, scale: 1.08 } : {}}
@@ -292,7 +293,7 @@ export function Tile({ tile, onClick, isInteractive = false, isRecent = false, s
       )}
     >
       {rendered.content}
-    </motion.button>
+    </motion.div>
   );
 }
 
