@@ -250,6 +250,10 @@ export function useMultiplayerGame() {
     socketRef.current?.emit("game:claim-pass");
   }, []);
 
+  const swapJoker = useCallback((myTileId: string, targetSeat: PlayerSeat, exposureIndex: number) => {
+    socketRef.current?.emit("game:swap-joker", { myTileId, targetSeat, exposureIndex });
+  }, []);
+
   const handleTimeoutAction = useCallback((action: TimeoutAction) => {
     socketRef.current?.emit("game:timeout-action", { action });
     if (action === "wait") {
@@ -313,6 +317,7 @@ export function useMultiplayerGame() {
     charlestonVote,
     claimDiscardTile,
     passOnDiscardTile,
+    swapJoker,
     handleTimeoutAction,
     selectSuggestionPattern,
   };

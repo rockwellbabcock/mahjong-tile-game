@@ -44,6 +44,7 @@ export default function GamePage() {
     charlestonVote,
     claimDiscardTile,
     passOnDiscardTile,
+    swapJoker,
     handleTimeoutAction,
     selectSuggestionPattern,
   } = game;
@@ -98,6 +99,7 @@ export default function GamePage() {
             onToggleAutoShowHints={toggleAutoShowHints}
             onTimeoutAction={handleTimeoutAction}
             onSelectPattern={selectSuggestionPattern}
+            onSwapJoker={swapJoker}
             onTestSiameseWin={testSiameseWin}
           />
 

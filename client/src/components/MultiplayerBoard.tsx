@@ -5,7 +5,7 @@ import { Tile, TileBack } from "./Tile";
 import { HintPanel } from "./HintPanel";
 import { GameTooltip } from "./GameTooltip";
 import { Button } from "@/components/ui/button";
-import { ArrowUpDown, Lightbulb, Palette, Copy, Check, Hand, WifiOff, Clock, X, Bot, Eye, ArrowLeftRight, Gem, Layers, FlaskConical } from "lucide-react";
+import { ArrowUpDown, Lightbulb, Palette, Copy, Check, Hand, WifiOff, Clock, X, Bot, Eye, ArrowLeftRight, Gem, Layers, FlaskConical, Repeat2 } from "lucide-react";
 import { useTileStyle } from "@/hooks/use-tile-style";
 import { useTheme } from "@/hooks/use-theme";
 import { useState, useEffect, useMemo } from "react";
@@ -39,6 +39,7 @@ interface MultiplayerBoardProps {
   onToggleAutoShowHints: () => void;
   onTimeoutAction: (action: TimeoutAction) => void;
   onSelectPattern: (patternId: string | null) => void;
+  onSwapJoker: (myTileId: string, targetSeat: PlayerSeat, exposureIndex: number) => void;
   onTestSiameseWin?: () => void;
 }
 
@@ -93,6 +94,7 @@ export function MultiplayerBoard({
   onToggleAutoShowHints,
   onTimeoutAction,
   onSelectPattern,
+  onSwapJoker,
   onTestSiameseWin,
 }: MultiplayerBoardProps) {
   const { tileStyle, cycleTileStyle } = useTileStyle();
@@ -100,6 +102,7 @@ export function MultiplayerBoard({
   const [copied, setCopied] = useState(false);
   const [transferMode, setTransferMode] = useState(false);
   const [showDiscardMobile, setShowDiscardMobile] = useState(false);
+  const [jokerSwapTarget, setJokerSwapTarget] = useState<{ seat: PlayerSeat; exposureIndex: number; matchSuit: string; matchValue: string | number } | null>(null);
 
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
@@ -119,6 +122,12 @@ export function MultiplayerBoard({
   }, [showDiscardMobile]);
   const tileSize = isMobile ? "sm" : "md";
   const discardTileSize = isMobile ? "xs" : "sm";
+
+  useEffect(() => {
+    if (!isMyTurn || (gameState.phase !== "draw" && gameState.phase !== "discard")) {
+      setJokerSwapTarget(null);
+    }
+  }, [isMyTurn, gameState.phase]);
 
   const highlightedTileIds = useMemo(() => {
     if (!activeSuggestionPattern || !hints) return new Set<string>();
@@ -458,13 +467,50 @@ export function MultiplayerBoard({
                     )}
                     {player.exposures.length > 0 && (
                       <div className="mt-1.5 flex items-center gap-1 flex-wrap">
-                        {player.exposures.map((group, gi) => (
-                          <div key={gi} className="flex items-center gap-0.5 bg-muted/30 rounded-md px-1 py-0.5">
-                            {group.map(tile => (
-                              <Tile key={tile.id} tile={tile} size="xs" data-testid={`exposure-tile-${tile.id}`} />
-                            ))}
-                          </div>
-                        ))}
+                        {player.exposures.map((group, gi) => {
+                          const hasJoker = group.some(t => t.suit === "Joker");
+                          const nonJoker = group.find(t => !t.isJoker);
+                          const canSwap = isMyTurn && (gameState.phase === "draw" || gameState.phase === "discard") && hasJoker;
+                          const isSwapSelected = jokerSwapTarget?.seat === player.seat && jokerSwapTarget?.exposureIndex === gi;
+                          return (
+                            <div
+                              key={gi}
+                              className={`flex items-center gap-0.5 rounded-md px-1 py-0.5 ${
+                                isSwapSelected
+                                  ? "bg-amber-200/50 dark:bg-amber-800/30 ring-2 ring-amber-400 dark:ring-amber-600"
+                                  : canSwap
+                                    ? "bg-muted/30 cursor-pointer hover-elevate"
+                                    : "bg-muted/30"
+                              }`}
+                              onClick={() => {
+                                if (canSwap && nonJoker) {
+                                  if (isSwapSelected) {
+                                    setJokerSwapTarget(null);
+                                  } else {
+                                    setJokerSwapTarget({
+                                      seat: player.seat,
+                                      exposureIndex: gi,
+                                      matchSuit: nonJoker.suit,
+                                      matchValue: nonJoker.value,
+                                    });
+                                  }
+                                }
+                              }}
+                              data-testid={`exposure-group-${player.seat.toLowerCase()}-${gi}`}
+                            >
+                              {group.map(tile => (
+                                <div key={tile.id} className="relative">
+                                  <Tile tile={tile} size="xs" data-testid={`exposure-tile-${tile.id}`} />
+                                  {tile.isJoker && canSwap && (
+                                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-amber-500 rounded-full flex items-center justify-center" data-testid={`swap-indicator-${tile.id}`}>
+                                      <Repeat2 className="w-2 h-2 text-white" />
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -598,32 +644,59 @@ export function MultiplayerBoard({
                 <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider text-center" data-testid="text-hand-label">
                   Your <GameTooltip term="hand">Hand</GameTooltip> ({displayHand.length} tiles) - {displaySeat}
                 </h3>
-                {isMyTurn && gameState.phase === "discard" && (
+                {jokerSwapTarget ? (
+                  <span className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-amber-600 dark:text-amber-400 animate-pulse" data-testid="text-swap-instruction">
+                      Click a matching tile to swap for the Joker
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setJokerSwapTarget(null)}
+                      data-testid="button-cancel-swap"
+                    >
+                      <X className="w-3 h-3 mr-1" />
+                      Cancel
+                    </Button>
+                  </span>
+                ) : isMyTurn && gameState.phase === "discard" ? (
                   <span className="text-xs font-bold text-orange-600 dark:text-orange-400 animate-pulse">
                     Click a tile to discard
                   </span>
-                )}
+                ) : null}
               </div>
 
               <div className="flex items-end justify-center gap-1 w-full pb-2 flex-wrap">
                 <div className="flex items-center justify-center gap-0.5 sm:gap-1 p-2 sm:p-3 bg-card rounded-md border border-card-border flex-wrap" data-testid="hand-main">
                   {displayHand.map((tile) => {
                     const isHighlighted = highlightedTileIds.has(tile.id);
+                    const isSwapMatch = jokerSwapTarget && !tile.isJoker &&
+                      tile.suit === jokerSwapTarget.matchSuit &&
+                      tile.value === jokerSwapTarget.matchValue;
                     return (
                       <div
                         key={tile.id}
                         className={`relative ${
-                          isHighlighted && activeSuggestionPattern
-                            ? "ring-2 ring-blue-400 dark:ring-blue-500 rounded-md"
-                            : ""
+                          isSwapMatch
+                            ? "ring-2 ring-amber-400 dark:ring-amber-500 rounded-md"
+                            : isHighlighted && activeSuggestionPattern
+                              ? "ring-2 ring-blue-400 dark:ring-blue-500 rounded-md"
+                              : ""
                         }`}
                       >
                         <Tile
                           tile={tile}
                           size={tileSize}
-                          isInteractive={isMyTurn && gameState.phase === "discard"}
-                          onClick={() => onDiscard(tile.id, activeControlSeat || undefined)}
-                          dimmed={activeSuggestionPattern ? !isHighlighted : false}
+                          isInteractive={jokerSwapTarget ? !!isSwapMatch : (isMyTurn && gameState.phase === "discard")}
+                          onClick={() => {
+                            if (jokerSwapTarget && isSwapMatch) {
+                              onSwapJoker(tile.id, jokerSwapTarget.seat, jokerSwapTarget.exposureIndex);
+                              setJokerSwapTarget(null);
+                            } else if (!jokerSwapTarget) {
+                              onDiscard(tile.id, activeControlSeat || undefined);
+                            }
+                          }}
+                          dimmed={jokerSwapTarget ? !isSwapMatch : (activeSuggestionPattern ? !isHighlighted : false)}
                         />
                       </div>
                     );

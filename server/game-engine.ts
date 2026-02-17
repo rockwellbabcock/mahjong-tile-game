@@ -1514,6 +1514,96 @@ export function botCallingDecision(roomCode: string): void {
   }
 }
 
+export function swapJoker(
+  roomCode: string,
+  playerId: string,
+  myTileId: string,
+  targetSeat: PlayerSeat,
+  exposureIndex: number
+): { success: boolean; error?: string } {
+  const room = rooms.get(roomCode);
+  if (!room) return { success: false, error: "Room not found" };
+  if (!room.state.started) return { success: false, error: "Game not started" };
+
+  const player = room.state.players.find(p => p.id === playerId);
+  if (!player) return { success: false, error: "Player not found" };
+
+  const isSiamese = room.state.config.gameMode === "2-player";
+  const controllerId = player.controlledBy || player.id;
+  let isPlayersTurn = false;
+  if (isSiamese) {
+    const mySeats = room.state.players.filter(
+      p => p.id === controllerId || p.controlledBy === controllerId
+    );
+    isPlayersTurn = mySeats.some(p => p.seat === room.state.currentTurn);
+  } else {
+    isPlayersTurn = player.seat === room.state.currentTurn;
+  }
+  if (!isPlayersTurn) return { success: false, error: "Not your turn" };
+
+  if (room.state.phase !== "draw" && room.state.phase !== "discard") {
+    return { success: false, error: "Can only swap Jokers during draw or discard phase" };
+  }
+
+  const targetPlayer = room.state.players.find(p => p.seat === targetSeat);
+  if (!targetPlayer) return { success: false, error: "Target player not found" };
+
+  if (isSiamese) {
+    const mySeats = room.state.players.filter(
+      p => p.id === controllerId || p.controlledBy === controllerId
+    );
+    if (mySeats.some(p => p.seat === targetSeat)) {
+      return { success: false, error: "Cannot swap from your own exposures" };
+    }
+  } else {
+    if (targetPlayer.id === playerId) {
+      return { success: false, error: "Cannot swap from your own exposures" };
+    }
+  }
+
+  if (exposureIndex < 0 || exposureIndex >= targetPlayer.exposures.length) {
+    return { success: false, error: "Invalid exposure group" };
+  }
+
+  const exposureGroup = targetPlayer.exposures[exposureIndex];
+  const jokerIdx = exposureGroup.findIndex(t => t.isJoker);
+  if (jokerIdx === -1) {
+    return { success: false, error: "No Joker in that exposure group" };
+  }
+
+  const nonJokerTiles = exposureGroup.filter(t => !t.isJoker);
+  if (nonJokerTiles.length === 0) {
+    return { success: false, error: "Cannot determine what tile the Joker represents" };
+  }
+
+  const nonJokerTile = nonJokerTiles[0];
+  const allMatch = nonJokerTiles.every(t => t.suit === nonJokerTile.suit && t.value === nonJokerTile.value);
+  if (!allMatch) {
+    return { success: false, error: "Exposure group tiles are inconsistent" };
+  }
+
+  const swapTileIdx = player.hand.findIndex(t => t.id === myTileId);
+  if (swapTileIdx === -1) {
+    return { success: false, error: "Tile not in your hand" };
+  }
+
+  const swapTile = player.hand[swapTileIdx];
+  if (swapTile.isJoker) {
+    return { success: false, error: "Cannot swap a Joker for a Joker" };
+  }
+
+  if (swapTile.suit !== nonJokerTile.suit || swapTile.value !== nonJokerTile.value) {
+    return { success: false, error: "Your tile must match the exposure group's tile type" };
+  }
+
+  const jokerTile = exposureGroup[jokerIdx];
+  exposureGroup[jokerIdx] = player.hand.splice(swapTileIdx, 1)[0];
+  player.hand.push(jokerTile);
+  player.hand.sort(compareTiles);
+
+  return { success: true };
+}
+
 export function checkBotWin(roomCode: string): { won: boolean; botName?: string; botSeat?: PlayerSeat; patternName?: string; description?: string } {
   const room = rooms.get(roomCode);
   if (!room) return { won: false };

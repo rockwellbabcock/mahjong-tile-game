@@ -41,6 +41,7 @@ import {
   isCallingComplete,
   resolveCallingPhase,
   botCallingDecision,
+  swapJoker,
 } from "./game-engine";
 import { log } from "./index";
 
@@ -386,6 +387,22 @@ export function setupSocket(httpServer: HttpServer): Server<ClientToServerEvents
 
       broadcastState(io, roomCode);
       handleCallingResolution(io, roomCode);
+    });
+
+    socket.on("game:swap-joker", ({ myTileId, targetSeat, exposureIndex }) => {
+      const roomCode = playerRooms.get(socket.id);
+      if (!roomCode) {
+        socket.emit("error", { message: "Not in a room" });
+        return;
+      }
+
+      const result = swapJoker(roomCode, socket.id, myTileId, targetSeat, exposureIndex);
+      if (!result.success) {
+        socket.emit("error", { message: result.error || "Cannot swap Joker" });
+        return;
+      }
+
+      broadcastState(io, roomCode);
     });
 
     socket.on("game:charleston-select", ({ tileId }) => {
