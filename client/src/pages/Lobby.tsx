@@ -5,14 +5,16 @@ import { Input } from "@/components/ui/input";
 import { useMultiplayerGame } from "@/hooks/use-multiplayer-game";
 import { SEAT_ORDER, type PlayerSeat, type GameMode, type RoomConfig, type ZombieBlanksConfig } from "@shared/schema";
 import { useLocation } from "wouter";
-import { Users, Copy, Check, Loader2, ArrowRight, Plus, Bot, Gem, Info } from "lucide-react";
+import { Users, Copy, Check, Loader2, ArrowRight, Plus, Bot, Gem, Info, GraduationCap, BookOpen } from "lucide-react";
 import { useTheme } from "@/hooks/use-theme";
 
 interface LobbyPageProps {
   game: ReturnType<typeof useMultiplayerGame>;
+  onShowTutorial?: () => void;
+  onShowLessons?: () => void;
 }
 
-export default function LobbyPage({ game }: LobbyPageProps) {
+export default function LobbyPage({ game, onShowTutorial, onShowLessons }: LobbyPageProps) {
   const { theme, toggleTheme } = useTheme();
   const [name, setName] = useState(() => {
     return localStorage.getItem("mahjong-player-name") || "";
@@ -198,6 +200,29 @@ export default function LobbyPage({ game }: LobbyPageProps) {
           <p className="text-sm sm:text-base text-muted-foreground">
             Play American Mahjong online with friends
           </p>
+        </div>
+
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1"
+            onClick={onShowTutorial}
+            data-testid="button-show-tutorial"
+          >
+            <GraduationCap className="w-4 h-4 mr-1.5" />
+            Tutorial
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1"
+            onClick={onShowLessons}
+            data-testid="button-show-lessons"
+          >
+            <BookOpen className="w-4 h-4 mr-1.5" />
+            Lessons
+          </Button>
         </div>
 
         <Card className="p-4 sm:p-6">

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useMultiplayerGame } from "@/hooks/use-multiplayer-game";
 import { MultiplayerBoard } from "@/components/MultiplayerBoard";
 import { WinOverlay } from "@/components/WinOverlay";
@@ -7,13 +7,17 @@ import { CallingOverlay } from "@/components/CallingOverlay";
 import { TileStyleContext, useTileStyleState } from "@/hooks/use-tile-style";
 import { ThemeContext, useThemeState } from "@/hooks/use-theme";
 import { MatThemeContext, useMatThemeState, MAT_TILE_PAIRS } from "@/hooks/use-mat-theme";
+import { TutorialOverlay, shouldShowTutorial } from "@/components/TutorialOverlay";
 import LobbyPage from "./Lobby";
+import LessonsPage from "./Lessons";
 
 export default function GamePage() {
   const game = useMultiplayerGame();
   const tileStyleValue = useTileStyleState();
   const themeValue = useThemeState();
   const matThemeValue = useMatThemeState();
+  const [showTutorial, setShowTutorial] = useState(shouldShowTutorial);
+  const [showLessons, setShowLessons] = useState(false);
 
   useEffect(() => {
     document.documentElement.classList.toggle("theme-jade", themeValue.theme === "jade");
@@ -68,7 +72,20 @@ export default function GamePage() {
     return (
       <ThemeContext.Provider value={themeValue}>
         <TileStyleContext.Provider value={tileStyleValue}>
-          <LobbyPage game={game} />
+          {showLessons ? (
+            <LessonsPage onBack={() => setShowLessons(false)} />
+          ) : (
+            <>
+              <LobbyPage
+                game={game}
+                onShowTutorial={() => setShowTutorial(true)}
+                onShowLessons={() => setShowLessons(true)}
+              />
+              {showTutorial && (
+                <TutorialOverlay onClose={() => setShowTutorial(false)} />
+              )}
+            </>
+          )}
         </TileStyleContext.Provider>
       </ThemeContext.Provider>
     );
