@@ -8,7 +8,7 @@ const SUITS: Suit[] = ["Bam", "Crak", "Dot"];
 const WINDS: TileValue[] = ["East", "South", "West", "North"];
 const DRAGONS: TileValue[] = ["Red", "Green", "White"];
 
-const BOT_NAMES = ["Bot Yi", "Bot Er", "Bot San", "Bot Si"];
+const BOT_NAMES = ["Bot Yi", "Bot Er", "Bot San"];
 
 function generateDeck(zombieBlanks?: ZombieBlanksConfig): Tile[] {
   const deck: Tile[] = [];
