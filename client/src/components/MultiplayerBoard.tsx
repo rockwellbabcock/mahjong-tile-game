@@ -5,7 +5,7 @@ import { Tile, TileBack } from "./Tile";
 import { HintPanel } from "./HintPanel";
 import { GameTooltip } from "./GameTooltip";
 import { Button } from "@/components/ui/button";
-import { ArrowUpDown, Lightbulb, Palette, Copy, Check, Hand, WifiOff, Clock, X, Bot, Eye, Gem, Layers, FlaskConical, Repeat2, Flag, Loader2 } from "lucide-react";
+import { ArrowUpDown, Lightbulb, Palette, Copy, Check, Hand, WifiOff, Clock, X, Bot, Gem, Layers, FlaskConical, Repeat2, Flag, Loader2 } from "lucide-react";
 import { useTileStyle } from "@/hooks/use-tile-style";
 import { useTheme } from "@/hooks/use-theme";
 import { useMatTheme, MAT_COLORS, MAT_LABELS } from "@/hooks/use-mat-theme";
@@ -16,7 +16,7 @@ interface MultiplayerBoardProps {
   isMyTurn: boolean;
   activeControlSeat: PlayerSeat | null;
   showHints: boolean;
-  autoShowHints: boolean;
+
   hints: {
     closest: PatternMatch[];
     bestHint: string;
@@ -38,7 +38,7 @@ interface MultiplayerBoardProps {
   onReorderHand: (tileIds: string[], forSeat?: PlayerSeat) => void;
   onTransfer: (tileId: string, fromSeat: PlayerSeat, toSeat: PlayerSeat) => void;
   onToggleHints: () => void;
-  onToggleAutoShowHints: () => void;
+
   onTimeoutAction: (action: TimeoutAction) => void;
   onSelectPattern: (patternId: string | null) => void;
   onSwapJoker: (myTileId: string, targetSeat: PlayerSeat, exposureIndex: number) => void;
@@ -78,7 +78,7 @@ export function MultiplayerBoard({
   isMyTurn,
   activeControlSeat,
   showHints,
-  autoShowHints,
+
   hints,
   winInfo,
   disconnectedPlayer,
@@ -90,7 +90,7 @@ export function MultiplayerBoard({
   onReorderHand,
   onTransfer,
   onToggleHints,
-  onToggleAutoShowHints,
+
   onTimeoutAction,
   onSelectPattern,
   onSwapJoker,
@@ -393,15 +393,6 @@ export function MultiplayerBoard({
             data-testid="button-hint"
           >
             <Lightbulb className="w-3 h-3" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onToggleAutoShowHints}
-            className={`h-7 px-2 text-xs bg-stone-800 border-stone-600 text-stone-300 hover:text-white ${autoShowHints ? "bg-emerald-900/50 border-emerald-600 text-emerald-300" : ""}`}
-            data-testid="button-auto-hints"
-          >
-            <Eye className="w-3 h-3" />
           </Button>
           <Button variant="outline" size="sm" onClick={() => onSort(activeControlSeat || undefined)}
             className="h-7 px-2 text-xs bg-stone-800 border-stone-600 text-stone-300 hover:text-white"

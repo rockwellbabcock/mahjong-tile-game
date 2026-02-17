@@ -136,7 +136,6 @@ export default function GamePage() {
             isMyTurn={isMyTurn}
             activeControlSeat={activeControlSeat}
             showHints={showHints}
-            autoShowHints={autoShowHints}
             hints={hints}
             winInfo={winInfo}
             disconnectedPlayer={disconnectedPlayer}
@@ -148,7 +147,6 @@ export default function GamePage() {
             onReorderHand={reorderHand}
             onTransfer={transferTile}
             onToggleHints={toggleHints}
-            onToggleAutoShowHints={toggleAutoShowHints}
             onTimeoutAction={handleTimeoutAction}
             onSelectPattern={selectSuggestionPattern}
             onSwapJoker={swapJoker}
