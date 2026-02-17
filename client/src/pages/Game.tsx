@@ -46,6 +46,7 @@ export default function GamePage() {
     claimDiscardTile,
     passOnDiscardTile,
     swapJoker,
+    zombieExchange,
     handleTimeoutAction,
     selectSuggestionPattern,
     forfeitGame,
@@ -105,6 +106,7 @@ export default function GamePage() {
             onTimeoutAction={handleTimeoutAction}
             onSelectPattern={selectSuggestionPattern}
             onSwapJoker={swapJoker}
+            onZombieExchange={zombieExchange}
             onTestSiameseWin={testSiameseWin}
             onForfeit={forfeitGame}
           />

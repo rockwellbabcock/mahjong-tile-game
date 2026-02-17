@@ -43,6 +43,7 @@ import {
   resolveCallingPhase,
   botCallingDecision,
   swapJoker,
+  zombieExchange,
 } from "./game-engine";
 import { log } from "./index";
 
@@ -431,6 +432,22 @@ export function setupSocket(httpServer: HttpServer): Server<ClientToServerEvents
       const result = swapJoker(roomCode, socket.id, myTileId, targetSeat, exposureIndex);
       if (!result.success) {
         socket.emit("error", { message: result.error || "Cannot swap Joker" });
+        return;
+      }
+
+      broadcastState(io, roomCode);
+    });
+
+    socket.on("game:zombie-exchange", ({ blankTileId, discardTileId }) => {
+      const roomCode = playerRooms.get(socket.id);
+      if (!roomCode) {
+        socket.emit("error", { message: "Not in a room" });
+        return;
+      }
+
+      const result = zombieExchange(roomCode, socket.id, blankTileId, discardTileId);
+      if (!result.success) {
+        socket.emit("error", { message: result.error || "Cannot exchange blank tile" });
         return;
       }
 

@@ -41,6 +41,7 @@ interface MultiplayerBoardProps {
   onTimeoutAction: (action: TimeoutAction) => void;
   onSelectPattern: (patternId: string | null) => void;
   onSwapJoker: (myTileId: string, targetSeat: PlayerSeat, exposureIndex: number) => void;
+  onZombieExchange: (blankTileId: string, discardTileId: string) => void;
   onTestSiameseWin?: () => void;
   onForfeit?: () => void;
 }
@@ -92,6 +93,7 @@ export function MultiplayerBoard({
   onTimeoutAction,
   onSelectPattern,
   onSwapJoker,
+  onZombieExchange,
   onTestSiameseWin,
   onForfeit,
 }: MultiplayerBoardProps) {
@@ -102,6 +104,7 @@ export function MultiplayerBoard({
   const [showDiscardMobile, setShowDiscardMobile] = useState(false);
   const [jokerSwapTarget, setJokerSwapTarget] = useState<{ seat: PlayerSeat; exposureIndex: number; matchSuit: string; matchValue: string | number | null } | null>(null);
   const [confirmForfeit, setConfirmForfeit] = useState(false);
+  const [zombieBlankSelected, setZombieBlankSelected] = useState<string | null>(null);
 
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
@@ -127,6 +130,20 @@ export function MultiplayerBoard({
       setJokerSwapTarget(null);
     }
   }, [isMyTurn, gameState.phase]);
+
+  const canZombieExchange = useMemo(() => {
+    if (!gameState.zombieBlanks?.enabled) return false;
+    if (gameState.phase === "won" || gameState.phase === "charleston" || gameState.phase === "calling") return false;
+    if (gameState.discardPile.length === 0) return false;
+    if (gameState.zombieBlanks.exchangeAnytime) return true;
+    return isMyTurn && (gameState.phase === "draw" || gameState.phase === "discard");
+  }, [gameState.zombieBlanks, gameState.phase, isMyTurn, gameState.discardPile.length]);
+
+  useEffect(() => {
+    if (!canZombieExchange) {
+      setZombieBlankSelected(null);
+    }
+  }, [canZombieExchange]);
 
   const highlightedTileIds = useMemo(() => {
     if (!activeSuggestionPattern || !hints) return new Set<string>();
@@ -184,6 +201,9 @@ export function MultiplayerBoard({
   const displaySeat = activeControlSeat || gameState.mySeat;
 
   function getStatusMessage() {
+    if (zombieBlankSelected) {
+      return "Click a tile in the discard pile to exchange it for your Blank tile. Click the Blank again to cancel.";
+    }
     if (disconnectedPlayer) {
       return `Waiting for ${disconnectedPlayer.playerName} to reconnect...`;
     }
@@ -518,9 +538,16 @@ export function MultiplayerBoard({
                               initial={{ opacity: 0, scale: 0.8 }}
                               animate={{ opacity: 1, scale: 1 }}
                               transition={{ duration: 0.2 }}
+                              className={`${zombieBlankSelected && tile.suit !== "Blank" ? "cursor-pointer ring-2 ring-green-400 rounded-sm" : ""}`}
+                              onClick={() => {
+                                if (zombieBlankSelected && tile.suit !== "Blank") {
+                                  onZombieExchange(zombieBlankSelected, tile.id);
+                                  setZombieBlankSelected(null);
+                                }
+                              }}
                               data-testid={`discard-tile-${i}`}
                             >
-                              <Tile tile={tile} size="xs" />
+                              <Tile tile={tile} size="xs" dimmed={zombieBlankSelected ? tile.suit === "Blank" : false} />
                             </motion.div>
                           ))
                         )}
@@ -711,16 +738,23 @@ export function MultiplayerBoard({
                                     initial={{ opacity: 0, scale: 0.8 }}
                                     animate={{ opacity: 1, scale: 1 }}
                                     transition={{ duration: 0.2 }}
+                                    className={`${zombieBlankSelected && tile.suit !== "Blank" ? "cursor-pointer ring-2 ring-green-400 rounded-sm" : ""}`}
+                                    onClick={() => {
+                                      if (zombieBlankSelected && tile.suit !== "Blank") {
+                                        onZombieExchange(zombieBlankSelected, tile.id);
+                                        setZombieBlankSelected(null);
+                                      }
+                                    }}
                                     data-testid={`discard-tile-${i}`}
                                   >
-                                    <Tile tile={tile} size="xs" />
+                                    <Tile tile={tile} size="xs" dimmed={zombieBlankSelected ? tile.suit === "Blank" : false} />
                                   </motion.div>
                                 ))
                               )}
                             </div>
                             <div
                               className="sm:hidden flex flex-wrap gap-0.5 justify-center max-w-[200px] max-h-[50px] overflow-hidden p-1 bg-black/15 rounded-md"
-                              onClick={() => setShowDiscardMobile(true)}
+                              onClick={() => { if (!zombieBlankSelected) setShowDiscardMobile(true); }}
                               data-testid="discard-pile-list-mobile"
                             >
                               {gameState.discardPile.length === 0 ? (
@@ -894,9 +928,13 @@ export function MultiplayerBoard({
                           className={`relative cursor-grab active:cursor-grabbing transition-transform duration-150 ${
                             isDragOver ? "scale-110 -translate-y-1" : ""
                           } ${
-                            isHighlighted && activeSuggestionPattern
-                              ? "ring-2 ring-blue-400 rounded-md"
-                              : ""
+                            zombieBlankSelected === tile.id
+                              ? "ring-2 ring-green-400 rounded-md scale-105 -translate-y-1"
+                              : tile.suit === "Blank" && canZombieExchange && !zombieBlankSelected
+                                ? "ring-1 ring-green-400/50 rounded-md"
+                                : isHighlighted && activeSuggestionPattern
+                                  ? "ring-2 ring-blue-400 rounded-md"
+                                  : ""
                           }`}
                           data-testid={`hand-tile-${idx}`}
                         >
@@ -906,15 +944,21 @@ export function MultiplayerBoard({
                           <Tile
                             tile={tile}
                             size={tileSize}
-                            isInteractive={isMyTurn && (gameState.phase === "discard" || (gameState.phase === "draw" && transferMode))}
+                            isInteractive={
+                              tile.suit === "Blank" && gameState.zombieBlanks?.enabled && canZombieExchange
+                                ? true
+                                : isMyTurn && (gameState.phase === "discard" || (gameState.phase === "draw" && transferMode))
+                            }
                             onClick={() => {
-                              if (transferMode && partnerSeat) {
+                              if (tile.suit === "Blank" && gameState.zombieBlanks?.enabled && canZombieExchange) {
+                                setZombieBlankSelected(zombieBlankSelected === tile.id ? null : tile.id);
+                              } else if (transferMode && partnerSeat) {
                                 onTransfer(tile.id, gameState.mySeat, partnerSeat);
-                              } else if (gameState.phase === "discard") {
+                              } else if (gameState.phase === "discard" && !zombieBlankSelected) {
                                 onDiscard(tile.id, gameState.mySeat);
                               }
                             }}
-                            dimmed={activeSuggestionPattern ? !isHighlighted : false}
+                            dimmed={zombieBlankSelected ? zombieBlankSelected !== tile.id : (activeSuggestionPattern ? !isHighlighted : false)}
                           />
                         </div>
                       );
@@ -940,6 +984,12 @@ export function MultiplayerBoard({
                           onDrop={(e) => handleDrop(e, idx, gameState.partnerHand!, partnerSeat)}
                           className={`relative cursor-grab active:cursor-grabbing transition-transform duration-150 ${
                             isDragOver ? "scale-110 -translate-y-1" : ""
+                          } ${
+                            zombieBlankSelected === tile.id
+                              ? "ring-2 ring-green-400 rounded-md scale-105 -translate-y-1"
+                              : tile.suit === "Blank" && canZombieExchange && !zombieBlankSelected
+                                ? "ring-1 ring-green-400/50 rounded-md"
+                                : ""
                           }`}
                           data-testid={`partner-tile-${idx}`}
                         >
@@ -949,14 +999,21 @@ export function MultiplayerBoard({
                           <Tile
                             tile={tile}
                             size={tileSize}
-                            isInteractive={isMyTurn && (gameState.phase === "discard" || (gameState.phase === "draw" && transferMode))}
+                            isInteractive={
+                              tile.suit === "Blank" && gameState.zombieBlanks?.enabled && canZombieExchange
+                                ? true
+                                : isMyTurn && (gameState.phase === "discard" || (gameState.phase === "draw" && transferMode))
+                            }
                             onClick={() => {
-                              if (transferMode) {
+                              if (tile.suit === "Blank" && gameState.zombieBlanks?.enabled && canZombieExchange) {
+                                setZombieBlankSelected(zombieBlankSelected === tile.id ? null : tile.id);
+                              } else if (transferMode) {
                                 onTransfer(tile.id, partnerSeat, gameState.mySeat);
-                              } else if (gameState.phase === "discard") {
+                              } else if (gameState.phase === "discard" && !zombieBlankSelected) {
                                 onDiscard(tile.id, partnerSeat);
                               }
                             }}
+                            dimmed={zombieBlankSelected ? zombieBlankSelected !== tile.id : false}
                           />
                         </div>
                       );
@@ -1040,11 +1097,15 @@ export function MultiplayerBoard({
                         className={`relative cursor-grab active:cursor-grabbing transition-transform duration-150 ${
                           isDragOver ? "scale-110 -translate-y-1" : ""
                         } ${
-                          isSwapMatch
-                            ? "ring-2 ring-amber-400 rounded-md"
-                            : isHighlighted && activeSuggestionPattern
-                              ? "ring-2 ring-blue-400 rounded-md"
-                              : ""
+                          zombieBlankSelected === tile.id
+                            ? "ring-2 ring-green-400 rounded-md scale-105 -translate-y-1"
+                            : tile.suit === "Blank" && canZombieExchange && !zombieBlankSelected
+                              ? "ring-1 ring-green-400/50 rounded-md"
+                              : isSwapMatch
+                                ? "ring-2 ring-amber-400 rounded-md"
+                                : isHighlighted && activeSuggestionPattern
+                                  ? "ring-2 ring-blue-400 rounded-md"
+                                  : ""
                         }`}
                         data-testid={`hand-tile-${idx}`}
                       >
@@ -1054,16 +1115,33 @@ export function MultiplayerBoard({
                         <Tile
                           tile={tile}
                           size={tileSize}
-                          isInteractive={jokerSwapTarget ? !!isSwapMatch : (isMyTurn && gameState.phase === "discard")}
+                          isInteractive={
+                            zombieBlankSelected === tile.id
+                              ? true
+                              : jokerSwapTarget
+                                ? !!isSwapMatch
+                                : tile.suit === "Blank" && gameState.zombieBlanks?.enabled && canZombieExchange
+                                  ? true
+                                  : (isMyTurn && gameState.phase === "discard")
+                          }
                           onClick={() => {
-                            if (jokerSwapTarget && isSwapMatch) {
+                            if (tile.suit === "Blank" && gameState.zombieBlanks?.enabled && canZombieExchange) {
+                              setZombieBlankSelected(zombieBlankSelected === tile.id ? null : tile.id);
+                              setJokerSwapTarget(null);
+                            } else if (jokerSwapTarget && isSwapMatch) {
                               onSwapJoker(tile.id, jokerSwapTarget.seat, jokerSwapTarget.exposureIndex);
                               setJokerSwapTarget(null);
-                            } else if (!jokerSwapTarget) {
+                            } else if (!jokerSwapTarget && !zombieBlankSelected) {
                               onDiscard(tile.id, activeControlSeat || undefined);
                             }
                           }}
-                          dimmed={jokerSwapTarget ? !isSwapMatch : (activeSuggestionPattern ? !isHighlighted : false)}
+                          dimmed={
+                            zombieBlankSelected
+                              ? zombieBlankSelected !== tile.id
+                              : jokerSwapTarget
+                                ? !isSwapMatch
+                                : (activeSuggestionPattern ? !isHighlighted : false)
+                          }
                         />
                       </div>
                     );
@@ -1106,9 +1184,17 @@ export function MultiplayerBoard({
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.2 }}
+                      className={`${zombieBlankSelected && tile.suit !== "Blank" ? "cursor-pointer ring-2 ring-green-400 rounded-sm" : ""}`}
+                      onClick={() => {
+                        if (zombieBlankSelected && tile.suit !== "Blank") {
+                          onZombieExchange(zombieBlankSelected, tile.id);
+                          setZombieBlankSelected(null);
+                          setShowDiscardMobile(false);
+                        }
+                      }}
                       data-testid={`discard-tile-mobile-${i}`}
                     >
-                      <Tile tile={tile} size="xs" />
+                      <Tile tile={tile} size="xs" dimmed={zombieBlankSelected ? tile.suit === "Blank" : false} />
                     </motion.div>
                   ))}
                 </div>

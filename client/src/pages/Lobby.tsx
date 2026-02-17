@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useMultiplayerGame } from "@/hooks/use-multiplayer-game";
-import { SEAT_ORDER, type PlayerSeat, type GameMode, type RoomConfig } from "@shared/schema";
+import { SEAT_ORDER, type PlayerSeat, type GameMode, type RoomConfig, type ZombieBlanksConfig } from "@shared/schema";
 import { useLocation } from "wouter";
 import { Users, Copy, Check, Loader2, ArrowRight, Plus, Bot, Gem, Info } from "lucide-react";
 import { useTheme } from "@/hooks/use-theme";
@@ -21,7 +21,11 @@ export default function LobbyPage({ game }: LobbyPageProps) {
   const [copied, setCopied] = useState(false);
   const [gameMode, setGameMode] = useState<GameMode>("4-player");
   const [fillWithBots, setFillWithBots] = useState(false);
-  const [includeBlanks, setIncludeBlanks] = useState(false);
+  const [zombieBlanks, setZombieBlanks] = useState<ZombieBlanksConfig>({
+    enabled: false,
+    count: 6,
+    exchangeAnytime: false,
+  });
   const [, setLocation] = useLocation();
 
   const { lobbyState, roomCode, error, playerCount, createRoom, joinRoom, gameState, gameEnded } = game;
@@ -29,7 +33,7 @@ export default function LobbyPage({ game }: LobbyPageProps) {
   function handleCreate() {
     if (!name.trim()) return;
     localStorage.setItem("mahjong-player-name", name.trim());
-    const config: RoomConfig = { gameMode, fillWithBots, includeBlanks };
+    const config: RoomConfig = { gameMode, fillWithBots, zombieBlanks };
     createRoom(name.trim(), config);
   }
 
@@ -270,30 +274,77 @@ export default function LobbyPage({ game }: LobbyPageProps) {
               <button
                 type="button"
                 role="checkbox"
-                aria-checked={includeBlanks}
-                onClick={() => setIncludeBlanks(!includeBlanks)}
+                aria-checked={zombieBlanks.enabled}
+                onClick={() => setZombieBlanks(prev => ({ ...prev, enabled: !prev.enabled }))}
                 className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
-                  includeBlanks
+                  zombieBlanks.enabled
                     ? "bg-primary border-primary text-primary-foreground"
                     : "border-muted-foreground/40 bg-transparent"
                 }`}
                 data-testid="checkbox-include-blanks"
               >
-                {includeBlanks && <Check className="w-3 h-3" />}
+                {zombieBlanks.enabled && <Check className="w-3 h-3" />}
               </button>
               <label
                 className="text-sm text-foreground cursor-pointer select-none"
-                onClick={() => setIncludeBlanks(!includeBlanks)}
+                onClick={() => setZombieBlanks(prev => ({ ...prev, enabled: !prev.enabled }))}
               >
                 Include Zombie Blanks
               </label>
               <div className="relative group">
                 <Info className="w-4 h-4 text-muted-foreground shrink-0 cursor-help" data-testid="icon-blanks-info" />
-                <div className="invisible group-hover:visible absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-2 rounded-md bg-popover border border-border shadow-md text-xs text-popover-foreground z-50">
-                  Adds 6 blank "zombie" tiles to the deck (158 total). These tiles can't form any pattern and act as dead weight — a fun challenge for experienced players!
+                <div className="invisible group-hover:visible absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-2 rounded-md bg-popover border border-border shadow-md text-xs text-popover-foreground z-50">
+                  Adds blank tiles to the deck. Exchange a blank from your hand for any tile in the discard pile — a 1-for-1 swap that lets you grab exactly what you need!
                 </div>
               </div>
             </div>
+
+            {zombieBlanks.enabled && (
+              <div className="ml-8 space-y-2 pb-1">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">Number of blanks:</span>
+                  <div className="flex gap-1">
+                    {([4, 6, 8] as const).map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => setZombieBlanks(prev => ({ ...prev, count: n }))}
+                        className={`px-2.5 py-0.5 rounded-md text-xs font-medium transition-colors ${
+                          zombieBlanks.count === n
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-muted-foreground hover-elevate"
+                        }`}
+                        data-testid={`button-blank-count-${n}`}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    role="checkbox"
+                    aria-checked={zombieBlanks.exchangeAnytime}
+                    onClick={() => setZombieBlanks(prev => ({ ...prev, exchangeAnytime: !prev.exchangeAnytime }))}
+                    className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
+                      zombieBlanks.exchangeAnytime
+                        ? "bg-primary border-primary text-primary-foreground"
+                        : "border-muted-foreground/40 bg-transparent"
+                    }`}
+                    data-testid="checkbox-exchange-anytime"
+                  >
+                    {zombieBlanks.exchangeAnytime && <Check className="w-2.5 h-2.5" />}
+                  </button>
+                  <label
+                    className="text-xs text-muted-foreground cursor-pointer select-none"
+                    onClick={() => setZombieBlanks(prev => ({ ...prev, exchangeAnytime: !prev.exchangeAnytime }))}
+                  >
+                    Allow exchange anytime (not just on your turn)
+                  </label>
+                </div>
+              </div>
+            )}
 
             <div className="border-t border-border pt-4">
               <Button

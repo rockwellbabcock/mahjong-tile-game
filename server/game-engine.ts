@@ -1,4 +1,4 @@
-import { type Tile, type Suit, type TileValue, type PlayerSeat, type PlayerState, type RoomState, type ClientRoomView, type ClientCharlestonView, type ClientCallingView, type DisconnectedPlayerInfo, type RoomConfig, type GameMode, type CharlestonState, type CharlestonDirection, type CallingState, type PendingClaim, type ClaimType, SEAT_ORDER } from "@shared/schema";
+import { type Tile, type Suit, type TileValue, type PlayerSeat, type PlayerState, type RoomState, type ClientRoomView, type ClientCharlestonView, type ClientCallingView, type DisconnectedPlayerInfo, type RoomConfig, type GameMode, type CharlestonState, type CharlestonDirection, type CallingState, type PendingClaim, type ClaimType, type ZombieBlanksConfig, SEAT_ORDER } from "@shared/schema";
 import { checkForWin, checkAllPatterns } from "@shared/patterns";
 
 const RECONNECT_TIMEOUT_MS = 60_000;
@@ -9,7 +9,7 @@ const DRAGONS: TileValue[] = ["Red", "Green", "White"];
 
 const BOT_NAMES = ["Bot Yi", "Bot Er", "Bot San", "Bot Si"];
 
-function generateDeck(includeBlanks: boolean = true): Tile[] {
+function generateDeck(zombieBlanks?: ZombieBlanksConfig): Tile[] {
   const deck: Tile[] = [];
   let idCounter = 1;
 
@@ -36,8 +36,8 @@ function generateDeck(includeBlanks: boolean = true): Tile[] {
   (["Plum", "Orchid", "Chrysanthemum", "Bamboo", "Lily", "Lotus", "Peony", "Jasmine"] as const).forEach((name) => addTile("Flower", name, 1));
   addTile("Joker", null, 8);
 
-  if (includeBlanks) {
-    addTile("Blank", null, 6);
+  if (zombieBlanks?.enabled) {
+    addTile("Blank", null, zombieBlanks.count);
   }
 
   return shuffle(deck);
@@ -96,7 +96,7 @@ export interface GameRoom {
 
 const rooms = new Map<string, GameRoom>();
 
-const DEFAULT_CONFIG: RoomConfig = { gameMode: "4-player", fillWithBots: false, includeBlanks: true };
+const DEFAULT_CONFIG: RoomConfig = { gameMode: "4-player", fillWithBots: false, zombieBlanks: { enabled: false, count: 6, exchangeAnytime: false } };
 
 function deduplicateName(name: string, existingPlayers: PlayerState[]): string {
   const existingNames = existingPlayers.map(p => p.name);
@@ -501,8 +501,8 @@ export function startGame(roomCode: string): boolean {
   if (room.state.players.length !== 4) return false;
   if (room.state.started) return false;
 
-  const includeBlanks = room.state.config?.includeBlanks ?? true;
-  const deck = generateDeck(includeBlanks);
+  const zombieBlanks = room.state.config?.zombieBlanks;
+  const deck = generateDeck(zombieBlanks);
 
   for (const player of room.state.players) {
     player.hand = deck.splice(0, 13).sort(compareTiles);
@@ -987,6 +987,7 @@ export function getClientView(room: GameRoom, playerId: string): ClientRoomView 
     disconnectedPlayers: getDisconnectedPlayers(room.state.roomCode),
     rejoinToken: player.rejoinToken,
     gameMode: room.state.config.gameMode,
+    zombieBlanks: room.state.config.zombieBlanks?.enabled ? room.state.config.zombieBlanks : undefined,
     partnerHand,
     charleston: room.state.charleston ? getCharlestonView(room.state.charleston, player.seat) : undefined,
     callingState: room.state.callingState ? getCallingView(room.state.callingState, player.seat, playerId) : undefined,
@@ -1076,8 +1077,8 @@ export function resetGame(roomCode: string): boolean {
   room.botTimers.forEach((timer) => clearTimeout(timer));
   room.botTimers.clear();
 
-  const includeBlanks = room.state.config?.includeBlanks ?? true;
-  const deck = generateDeck(includeBlanks);
+  const zombieBlanks = room.state.config?.zombieBlanks;
+  const deck = generateDeck(zombieBlanks);
   for (const player of room.state.players) {
     player.hand = deck.splice(0, 13).sort(compareTiles);
     player.exposures = [];
@@ -1676,6 +1677,66 @@ export function swapJoker(
   const jokerTile = exposure.tiles[jokerIdx];
   exposure.tiles[jokerIdx] = player.hand.splice(swapTileIdx, 1)[0];
   player.hand.push(jokerTile);
+  player.hand.sort(compareTiles);
+
+  return { success: true };
+}
+
+export function zombieExchange(
+  roomCode: string,
+  playerId: string,
+  blankTileId: string,
+  discardTileId: string
+): { success: boolean; error?: string } {
+  const room = rooms.get(roomCode);
+  if (!room) return { success: false, error: "Room not found" };
+  if (!room.state.started) return { success: false, error: "Game not started" };
+  if (room.state.phase === "won") return { success: false, error: "Game is over" };
+  if (room.state.phase === "charleston") return { success: false, error: "Cannot exchange during Charleston" };
+  if (room.state.phase === "calling") return { success: false, error: "Cannot exchange during Calling" };
+
+  const zombieConfig = room.state.config?.zombieBlanks;
+  if (!zombieConfig?.enabled) return { success: false, error: "Zombie Blanks are not enabled" };
+
+  const player = room.state.players.find(p => p.id === playerId);
+  if (!player) return { success: false, error: "Player not found" };
+
+  if (!zombieConfig.exchangeAnytime) {
+    const isSiamese = room.state.config.gameMode === "2-player";
+    const controllerId = player.controlledBy || player.id;
+    let isPlayersTurn = false;
+    if (isSiamese) {
+      const mySeats = room.state.players.filter(
+        p => p.id === controllerId || p.controlledBy === controllerId
+      );
+      isPlayersTurn = mySeats.some(p => p.seat === room.state.currentTurn);
+    } else {
+      isPlayersTurn = player.seat === room.state.currentTurn;
+    }
+    if (!isPlayersTurn) return { success: false, error: "You can only exchange blanks on your turn" };
+
+    if (room.state.phase !== "draw" && room.state.phase !== "discard") {
+      return { success: false, error: "You can only exchange blanks during your turn phases" };
+    }
+  }
+
+  const blankIdx = player.hand.findIndex(t => t.id === blankTileId);
+  if (blankIdx === -1) return { success: false, error: "Blank tile not in your hand" };
+  const blankTile = player.hand[blankIdx];
+  if (blankTile.suit !== "Blank") return { success: false, error: "Selected tile is not a Blank" };
+
+  const discardIdx = room.state.discardPile.findIndex(t => t.id === discardTileId);
+  if (discardIdx === -1) return { success: false, error: "Target tile not found in discard pile" };
+  const discardTile = room.state.discardPile[discardIdx];
+
+  if (discardTile.suit === "Blank") return { success: false, error: "Cannot pick up another Blank from the discard pile" };
+
+  player.hand.splice(blankIdx, 1);
+  room.state.discardPile.splice(discardIdx, 1);
+
+  player.hand.push(discardTile);
+  room.state.discardPile.push(blankTile);
+
   player.hand.sort(compareTiles);
 
   return { success: true };

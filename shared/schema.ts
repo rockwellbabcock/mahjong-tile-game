@@ -82,10 +82,16 @@ export interface ExposureGroup {
   claimType: ClaimType;
 }
 
+export interface ZombieBlanksConfig {
+  enabled: boolean;
+  count: 4 | 6 | 8;
+  exchangeAnytime: boolean;
+}
+
 export interface RoomConfig {
   gameMode: GameMode;
   fillWithBots: boolean;
-  includeBlanks: boolean;
+  zombieBlanks: ZombieBlanksConfig;
 }
 
 export interface PlayerState {
@@ -157,6 +163,7 @@ export interface ClientRoomView {
   disconnectedPlayers: DisconnectedPlayerInfo[];
   rejoinToken?: string;
   gameMode: GameMode;
+  zombieBlanks?: ZombieBlanksConfig;
   partnerHand?: Tile[];
   charleston?: ClientCharlestonView;
   callingState?: ClientCallingView;
@@ -201,6 +208,7 @@ export interface ClientToServerEvents {
   "game:reorder": (data: { tileIds: string[]; seat?: PlayerSeat }) => void;
   "game:test-siamese-win": () => void;
   "game:forfeit": () => void;
+  "game:zombie-exchange": (data: { blankTileId: string; discardTileId: string }) => void;
   "game:charleston-select": (data: { tileId: string }) => void;
   "game:charleston-ready": () => void;
   "game:charleston-skip": () => void;

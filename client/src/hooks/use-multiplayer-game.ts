@@ -264,6 +264,10 @@ export function useMultiplayerGame() {
     socketRef.current?.emit("game:swap-joker", { myTileId, targetSeat, exposureIndex });
   }, []);
 
+  const zombieExchange = useCallback((blankTileId: string, discardTileId: string) => {
+    socketRef.current?.emit("game:zombie-exchange", { blankTileId, discardTileId });
+  }, []);
+
   const handleTimeoutAction = useCallback((action: TimeoutAction) => {
     socketRef.current?.emit("game:timeout-action", { action });
     if (action === "wait") {
@@ -329,6 +333,7 @@ export function useMultiplayerGame() {
     claimDiscardTile,
     passOnDiscardTile,
     swapJoker,
+    zombieExchange,
     handleTimeoutAction,
     selectSuggestionPattern,
     forfeitGame,
