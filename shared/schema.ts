@@ -19,10 +19,9 @@ export type Suit = "Bam" | "Crak" | "Dot" | "Wind" | "Dragon" | "Flower" | "Joke
 export type WindValue = "North" | "South" | "East" | "West";
 export type DragonValue = "Green" | "Red" | "White";
 
-export type FlowerName = "Plum" | "Orchid" | "Chrysanthemum" | "Bamboo";
-export type SeasonName = "Spring" | "Summer" | "Fall" | "Winter";
+export type FlowerName = "Plum" | "Orchid" | "Chrysanthemum" | "Bamboo" | "Lily" | "Lotus" | "Peony" | "Jasmine";
 
-export type TileValue = number | WindValue | DragonValue | FlowerName | SeasonName | null; 
+export type TileValue = number | WindValue | DragonValue | FlowerName | null; 
 
 export interface Tile {
   id: string;

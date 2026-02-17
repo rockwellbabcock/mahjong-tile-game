@@ -52,7 +52,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Game Architecture
 
-- The Mahjong deck consists of: numbered suits (Bam, Crak, Dot: 1-9, 4 each), Winds (4 each), Dragons (4 each), 4 named Flowers (Plum, Orchid, Chrysanthemum, Bamboo), 4 Seasons (Spring, Summer, Fall, Winter), 8 Jokers — standard American Mahjong set (152 tiles)
+- The Mahjong deck consists of: numbered suits (Bam, Crak, Dot: 1-9, 4 each), Winds (4 each), Dragons (4 each), 8 Flowers (Plum, Orchid, Chrysanthemum, Bamboo, Lily, Lotus, Peony, Jasmine — 1 each), 8 Jokers — standard American Mahjong set (152 tiles)
 - Game phases: "charleston" (pre-game tile passing), "draw" (player clicks Draw button), "discard" (player picks a tile to remove), "calling" (other players decide to claim or pass on a discard), "won" (winning hand detected)
 - Server-side game logic (deck generation, shuffling, drawing, discarding, sorting) lives in `server/game-engine.ts`
 - The `MultiplayerBoard` component renders the wall count, other players' info, discard pile, player hand, action buttons, status bar, and hint panel

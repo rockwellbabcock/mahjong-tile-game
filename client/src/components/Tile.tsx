@@ -12,16 +12,6 @@ interface TileProps {
   dimmed?: boolean;
 }
 
-const SEASON_NAMES = ["Spring", "Summer", "Fall", "Winter"];
-
-function isFlower(tile: TileType): boolean {
-  return tile.suit === "Flower" && !SEASON_NAMES.includes(String(tile.value));
-}
-
-function isSeason(tile: TileType): boolean {
-  return tile.suit === "Flower" && SEASON_NAMES.includes(String(tile.value));
-}
-
 const dragonSuitMap: Record<string, string> = {
   Red: "Crak",
   Green: "Bam",
@@ -35,7 +25,6 @@ const suitColors: Record<string, string> = {
   Wind: "text-slate-800 border-slate-300 bg-slate-50",
   Dragon: "text-purple-800 border-purple-300 bg-purple-50",
   Flower: "text-fuchsia-700 border-fuchsia-300 bg-fuchsia-50",
-  Season: "text-teal-700 border-teal-300 bg-teal-50",
   Joker: "text-amber-700 border-amber-300 bg-amber-50",
 };
 
@@ -46,7 +35,6 @@ const classicSuitColors: Record<string, string> = {
   Wind: "text-slate-800 border-slate-300",
   Dragon: "text-purple-800 border-purple-300",
   Flower: "text-fuchsia-700 border-fuchsia-200",
-  Season: "text-teal-700 border-teal-200",
   Joker: "text-amber-700 border-amber-200 bg-amber-50",
 };
 
@@ -57,7 +45,6 @@ const classicSuitIcons: Record<string, string> = {
   Wind: "\uD83D\uDCA8",
   Dragon: "\uD83D\uDC09",
   Flower: "\uD83C\uDF3A",
-  Season: "\uD83C\uDF43",
   Joker: "\uD83C\uDCCF",
 };
 
@@ -66,13 +53,10 @@ const flowerIcons: Record<string, string> = {
   Orchid: "\uD83C\uDF3C",
   Chrysanthemum: "\uD83C\uDF3B",
   Bamboo: "\uD83C\uDF8D",
-};
-
-const seasonIcons: Record<string, string> = {
-  Spring: "\uD83C\uDF31",
-  Summer: "\u2600\uFE0F",
-  Fall: "\uD83C\uDF42",
-  Winter: "\u2744\uFE0F",
+  Lily: "\uD83C\uDF37",
+  Lotus: "\uD83E\uDEB7",
+  Peony: "\uD83C\uDF39",
+  Jasmine: "\uD83E\uDEBB",
 };
 
 const numberEmojis: Record<number, string> = {
@@ -117,13 +101,8 @@ function renderClassic(tile: TileType, size: "xs" | "sm" | "md" | "lg") {
 
   if (tile.suit === "Flower") {
     const name = String(tile.value);
-    if (isSeason(tile)) {
-      icon = seasonIcons[name] || "\uD83C\uDF43";
-      colorKey = "Season";
-    } else {
-      icon = flowerIcons[name] || "\uD83C\uDF3A";
-      colorKey = "Flower";
-    }
+    icon = flowerIcons[name] || "\uD83C\uDF3A";
+    colorKey = "Flower";
     displayValue = name;
   }
 
@@ -154,7 +133,7 @@ function renderClassic(tile: TileType, size: "xs" | "sm" | "md" | "lg") {
     cornerValue = assoc ? assoc.charAt(0) : null;
   }
   if (tile.suit === "Flower") {
-    cornerValue = isSeason(tile) ? "S" : "F";
+    cornerValue = "F";
   }
 
   return {
@@ -199,15 +178,9 @@ function renderEmoji(tile: TileType, size: "xs" | "sm" | "md" | "lg") {
     bottomLabel = "Joker";
   } else if (tile.suit === "Flower") {
     const name = String(tile.value);
-    if (isSeason(tile)) {
-      mainContent = seasonIcons[name] || "\uD83C\uDF43";
-      bottomLabel = name;
-      colorKey = "Season";
-    } else {
-      mainContent = flowerIcons[name] || "\uD83C\uDF38";
-      bottomLabel = name;
-      colorKey = "Flower";
-    }
+    mainContent = flowerIcons[name] || "\uD83C\uDF38";
+    bottomLabel = name;
+    colorKey = "Flower";
   } else if (tile.suit === "Wind") {
     const name = String(tile.value);
     mainContent = windSymbols[name] || name;
@@ -252,14 +225,8 @@ function renderText(tile: TileType, size: "xs" | "sm" | "md" | "lg") {
 
   if (tile.suit === "Joker") label = "Joker";
   else if (tile.suit === "Flower") {
-    const name = String(tile.value);
-    if (isSeason(tile)) {
-      label = name;
-      colorKey = "Season";
-    } else {
-      label = name;
-      colorKey = "Flower";
-    }
+    label = String(tile.value);
+    colorKey = "Flower";
   }
   else if (tile.suit === "Wind") label = String(tile.value);
   else if (tile.suit === "Dragon") {

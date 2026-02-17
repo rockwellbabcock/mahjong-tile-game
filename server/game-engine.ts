@@ -33,8 +33,7 @@ function generateDeck(): Tile[] {
   WINDS.forEach((wind) => addTile("Wind", wind));
   DRAGONS.forEach((dragon) => addTile("Dragon", dragon));
 
-  (["Plum", "Orchid", "Chrysanthemum", "Bamboo"] as const).forEach((name) => addTile("Flower", name, 1));
-  (["Spring", "Summer", "Fall", "Winter"] as const).forEach((name) => addTile("Flower", name, 1));
+  (["Plum", "Orchid", "Chrysanthemum", "Bamboo", "Lily", "Lotus", "Peony", "Jasmine"] as const).forEach((name) => addTile("Flower", name, 1));
   addTile("Joker", null, 8);
 
   return shuffle(deck);

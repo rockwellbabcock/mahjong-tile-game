@@ -35,10 +35,7 @@ function generateDeck(): Tile[] {
     addTile("Dragon", dragon);
   });
 
-  ["Plum", "Orchid", "Chrysanthemum", "Bamboo"].forEach((name) => {
-    addTile("Flower", name, 1);
-  });
-  ["Spring", "Summer", "Fall", "Winter"].forEach((name) => {
+  (["Plum", "Orchid", "Chrysanthemum", "Bamboo", "Lily", "Lotus", "Peony", "Jasmine"] as const).forEach((name) => {
     addTile("Flower", name, 1);
   });
   addTile("Joker", null, 8);
