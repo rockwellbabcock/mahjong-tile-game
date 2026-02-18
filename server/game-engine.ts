@@ -3,6 +3,7 @@ import { checkForWin, checkAllPatterns } from "@shared/patterns";
 
 const RECONNECT_TIMEOUT_MS = 60_000;
 const BOT_TURN_DELAY_MS = 2_000;
+const BOT_TURN_DELAY_SIAMESE_MS = 800;
 const BOT_DECISION_TIMEOUT_MS = 10_000;
 const PLAY_AGAIN_TIMEOUT_MS = 90_000;
 const COURTESY_PASS_TIMEOUT_MS = 30_000;
@@ -1831,11 +1832,16 @@ export function scheduleBotTurn(roomCode: string, callback: () => void): void {
   const room = rooms.get(roomCode);
   if (!room) return;
 
+  const isSiamese = room.state.config.gameMode === "2-player";
+  const delay = isSiamese ? BOT_TURN_DELAY_SIAMESE_MS : BOT_TURN_DELAY_MS;
+
   const timerKey = `${roomCode}-${Date.now()}`;
   const timer = setTimeout(() => {
     room.botTimers.delete(timerKey);
+    const currentRoom = rooms.get(roomCode);
+    if (!currentRoom || !currentRoom.state.started || currentRoom.state.phase === "won") return;
     callback();
-  }, BOT_TURN_DELAY_MS);
+  }, delay);
 
   room.botTimers.set(timerKey, timer);
 }

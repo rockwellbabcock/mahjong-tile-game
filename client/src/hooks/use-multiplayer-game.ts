@@ -281,7 +281,22 @@ export function useMultiplayerGame() {
   }, []);
 
   const forfeitGame = useCallback(() => {
-    socketRef.current?.emit("game:forfeit");
+    const socket = socketRef.current;
+    if (socket?.connected) {
+      socket.emit("game:forfeit");
+    } else {
+      setGameEnded("Game ended (connection lost).");
+      setLobbyState("idle");
+      setGameState(null);
+      setRoomCode(null);
+      setMySeat(null);
+      setMySeats([]);
+      setWinInfo(null);
+      sessionStorage.removeItem(SESSION_KEY_ROOM);
+      sessionStorage.removeItem(SESSION_KEY_NAME);
+      sessionStorage.removeItem(SESSION_KEY_SEAT);
+      sessionStorage.removeItem(SESSION_KEY_TOKEN);
+    }
   }, []);
 
   const charlestonSelectTile = useCallback((tileId: string) => {
