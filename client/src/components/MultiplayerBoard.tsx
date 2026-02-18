@@ -1197,8 +1197,19 @@ export function MultiplayerBoard({
                     const r1Player = gameState.players.find(p => p.seat === gameState.mySeat);
                     return r1Player && r1Player.exposures.length > 0 ? (
                       <div className="flex items-center justify-center gap-1.5 flex-wrap mb-1" data-testid="my-exposed-sets-r1">
-                        {r1Player.exposures.map((group, gi) => (
-                          <div key={gi} className="flex items-center gap-0.5 bg-stone-800/60 rounded-md px-1.5 py-0.5 border border-stone-700" data-testid={`my-exposure-r1-${gi}`}>
+                        {r1Player.exposures.map((group, gi) => {
+                          const hasJoker = group.tiles.some(t => t.suit === "Joker");
+                          const nonJoker = group.tiles.find(t => !t.isJoker);
+                          const canSwap = isMyTurn && (gameState.phase === "draw" || gameState.phase === "discard") && hasJoker;
+                          const isSwapSelected = jokerSwapTarget?.seat === r1Player.seat && jokerSwapTarget?.exposureIndex === gi;
+                          return (
+                          <div key={gi} className={`flex items-center gap-0.5 rounded-md px-1.5 py-0.5 border ${isSwapSelected ? "bg-amber-200/50 ring-2 ring-amber-400 border-amber-400" : canSwap ? "bg-stone-800/60 border-stone-700 cursor-pointer" : "bg-stone-800/60 border-stone-700"}`}
+                            onClick={() => {
+                              if (canSwap && nonJoker) {
+                                setJokerSwapTarget(isSwapSelected ? null : { seat: r1Player.seat, exposureIndex: gi, matchSuit: nonJoker.suit, matchValue: nonJoker.value });
+                              }
+                            }}
+                            data-testid={`my-exposure-r1-${gi}`}>
                             {group.tiles.map(tile => (
                               <div key={tile.id} className="relative">
                                 <Tile tile={tile} size="xs" />
@@ -1209,7 +1220,8 @@ export function MultiplayerBoard({
                             ))}
                             <span className="text-[8px] text-stone-500 ml-0.5 capitalize">{group.claimType}</span>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     ) : null;
                   })()}
@@ -1285,8 +1297,19 @@ export function MultiplayerBoard({
                     const r2Player = partnerSeat ? gameState.players.find(p => p.seat === partnerSeat) : null;
                     return r2Player && r2Player.exposures.length > 0 ? (
                       <div className="flex items-center justify-center gap-1.5 flex-wrap mb-1" data-testid="my-exposed-sets-r2">
-                        {r2Player.exposures.map((group, gi) => (
-                          <div key={gi} className="flex items-center gap-0.5 bg-stone-800/60 rounded-md px-1.5 py-0.5 border border-stone-700" data-testid={`my-exposure-r2-${gi}`}>
+                        {r2Player.exposures.map((group, gi) => {
+                          const hasJoker = group.tiles.some(t => t.suit === "Joker");
+                          const nonJoker = group.tiles.find(t => !t.isJoker);
+                          const canSwap = isMyTurn && (gameState.phase === "draw" || gameState.phase === "discard") && hasJoker;
+                          const isSwapSelected = jokerSwapTarget?.seat === r2Player.seat && jokerSwapTarget?.exposureIndex === gi;
+                          return (
+                          <div key={gi} className={`flex items-center gap-0.5 rounded-md px-1.5 py-0.5 border ${isSwapSelected ? "bg-amber-200/50 ring-2 ring-amber-400 border-amber-400" : canSwap ? "bg-stone-800/60 border-stone-700 cursor-pointer" : "bg-stone-800/60 border-stone-700"}`}
+                            onClick={() => {
+                              if (canSwap && nonJoker) {
+                                setJokerSwapTarget(isSwapSelected ? null : { seat: r2Player.seat, exposureIndex: gi, matchSuit: nonJoker.suit, matchValue: nonJoker.value });
+                              }
+                            }}
+                            data-testid={`my-exposure-r2-${gi}`}>
                             {group.tiles.map(tile => (
                               <div key={tile.id} className="relative">
                                 <Tile tile={tile} size="xs" />
@@ -1297,7 +1320,8 @@ export function MultiplayerBoard({
                             ))}
                             <span className="text-[8px] text-stone-500 ml-0.5 capitalize">{group.claimType}</span>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     ) : null;
                   })()}
@@ -1397,10 +1421,20 @@ export function MultiplayerBoard({
                 return myPlayer && myPlayer.exposures.length > 0 ? (
                   <div className="mb-1.5" data-testid="my-exposed-sets">
                     <div className="flex items-center justify-center gap-2 flex-wrap">
-                      {myPlayer.exposures.map((group, gi) => (
+                      {myPlayer.exposures.map((group, gi) => {
+                        const hasJoker = group.tiles.some(t => t.suit === "Joker");
+                        const nonJoker = group.tiles.find(t => !t.isJoker);
+                        const canSwap = isMyTurn && (gameState.phase === "draw" || gameState.phase === "discard") && hasJoker;
+                        const isSwapSelected = jokerSwapTarget?.seat === myPlayer.seat && jokerSwapTarget?.exposureIndex === gi;
+                        return (
                         <div
                           key={gi}
-                          className="flex items-center gap-0.5 bg-stone-800/60 rounded-md px-1.5 py-1 border border-stone-700"
+                          className={`flex items-center gap-0.5 rounded-md px-1.5 py-1 border ${isSwapSelected ? "bg-amber-200/50 ring-2 ring-amber-400 border-amber-400" : canSwap ? "bg-stone-800/60 border-stone-700 cursor-pointer" : "bg-stone-800/60 border-stone-700"}`}
+                          onClick={() => {
+                            if (canSwap && nonJoker) {
+                              setJokerSwapTarget(isSwapSelected ? null : { seat: myPlayer.seat, exposureIndex: gi, matchSuit: nonJoker.suit, matchValue: nonJoker.value });
+                            }
+                          }}
                           data-testid={`my-exposure-group-${gi}`}
                         >
                           {group.tiles.map(tile => (
@@ -1413,7 +1447,8 @@ export function MultiplayerBoard({
                           ))}
                           <span className="text-[10px] text-stone-500 ml-1 capitalize">{group.claimType}</span>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 ) : null;

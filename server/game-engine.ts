@@ -2102,10 +2102,6 @@ export function swapJoker(
     ? room.state.players.filter(p => p.id === controllerId || p.controlledBy === controllerId).some(p => p.seat === targetSeat)
     : targetPlayer.id === playerId;
 
-  if (!isSiamese && isOwnExposure) {
-    return { success: false, error: "Cannot swap from your own exposures" };
-  }
-
   if (exposureIndex < 0 || exposureIndex >= targetPlayer.exposures.length) {
     return { success: false, error: "Invalid exposure group" };
   }
