@@ -1221,7 +1221,7 @@ export function transferTile(roomCode: string, playerId: string, tileId: string,
   if (!room) return { success: false, error: "Room not found" };
   if (!room.state.started) return { success: false, error: "Game not started" };
   if (room.state.config.gameMode !== "2-player") return { success: false, error: "Transfer only available in 2-player mode" };
-  if (room.state.phase !== "draw" && room.state.phase !== "discard") return { success: false, error: "Can only transfer during your turn" };
+  if (room.state.phase === "won") return { success: false, error: "Game is over" };
 
   if (!canPlayerActForSeat(room, playerId, fromSeat)) {
     return { success: false, error: "You cannot act for the source rack" };
@@ -2098,17 +2098,12 @@ export function swapJoker(
   const targetPlayer = room.state.players.find(p => p.seat === targetSeat);
   if (!targetPlayer) return { success: false, error: "Target player not found" };
 
-  if (isSiamese) {
-    const mySeats = room.state.players.filter(
-      p => p.id === controllerId || p.controlledBy === controllerId
-    );
-    if (mySeats.some(p => p.seat === targetSeat)) {
-      return { success: false, error: "Cannot swap from your own exposures" };
-    }
-  } else {
-    if (targetPlayer.id === playerId) {
-      return { success: false, error: "Cannot swap from your own exposures" };
-    }
+  const isOwnExposure = isSiamese
+    ? room.state.players.filter(p => p.id === controllerId || p.controlledBy === controllerId).some(p => p.seat === targetSeat)
+    : targetPlayer.id === playerId;
+
+  if (!isSiamese && isOwnExposure) {
+    return { success: false, error: "Cannot swap from your own exposures" };
   }
 
   if (exposureIndex < 0 || exposureIndex >= targetPlayer.exposures.length) {
@@ -2132,12 +2127,32 @@ export function swapJoker(
     return { success: false, error: "Exposure group tiles are inconsistent" };
   }
 
-  const swapTileIdx = player.hand.findIndex(t => t.id === myTileId);
+  let sourcePlayer = player;
+  let swapTileIdx = player.hand.findIndex(t => t.id === myTileId);
+
+  if (swapTileIdx === -1 && isSiamese) {
+    const mySeats = room.state.players.filter(
+      p => p.id === controllerId || p.controlledBy === controllerId
+    );
+    for (const rackPlayer of mySeats) {
+      const idx = rackPlayer.hand.findIndex(t => t.id === myTileId);
+      if (idx !== -1) {
+        sourcePlayer = rackPlayer;
+        swapTileIdx = idx;
+        break;
+      }
+    }
+  }
+
   if (swapTileIdx === -1) {
     return { success: false, error: "Tile not in your hand" };
   }
 
-  const swapTile = player.hand[swapTileIdx];
+  if (isSiamese && isOwnExposure && sourcePlayer.seat === targetSeat) {
+    return { success: false, error: "Must use a tile from your other rack to swap a Joker from this rack's exposure" };
+  }
+
+  const swapTile = sourcePlayer.hand[swapTileIdx];
   if (swapTile.isJoker) {
     return { success: false, error: "Cannot swap a Joker for a Joker" };
   }
@@ -2147,9 +2162,40 @@ export function swapJoker(
   }
 
   const jokerTile = exposure.tiles[jokerIdx];
-  exposure.tiles[jokerIdx] = player.hand.splice(swapTileIdx, 1)[0];
-  player.hand.push(jokerTile);
-  player.hand.sort(compareTiles);
+  exposure.tiles[jokerIdx] = sourcePlayer.hand.splice(swapTileIdx, 1)[0];
+  sourcePlayer.hand.push(jokerTile);
+  sourcePlayer.hand.sort(compareTiles);
+
+  return { success: true };
+}
+
+export function moveExposure(
+  roomCode: string,
+  playerId: string,
+  fromSeat: PlayerSeat,
+  toSeat: PlayerSeat,
+  exposureIndex: number
+): { success: boolean; error?: string } {
+  const room = rooms.get(roomCode);
+  if (!room) return { success: false, error: "Room not found" };
+  if (!room.state.started) return { success: false, error: "Game not started" };
+  if (room.state.config.gameMode !== "2-player") return { success: false, error: "Only available in Siamese mode" };
+  if (room.state.phase !== "discard") return { success: false, error: "Can only correct exposure placement before discarding" };
+
+  if (!canPlayerActForSeat(room, playerId, fromSeat) || !canPlayerActForSeat(room, playerId, toSeat)) {
+    return { success: false, error: "You cannot act for these racks" };
+  }
+
+  const fromPlayer = room.state.players.find(p => p.seat === fromSeat);
+  const toPlayer = room.state.players.find(p => p.seat === toSeat);
+  if (!fromPlayer || !toPlayer) return { success: false, error: "Rack not found" };
+
+  if (exposureIndex < 0 || exposureIndex >= fromPlayer.exposures.length) {
+    return { success: false, error: "Invalid exposure index" };
+  }
+
+  const [exposure] = fromPlayer.exposures.splice(exposureIndex, 1);
+  toPlayer.exposures.push(exposure);
 
   return { success: true };
 }
@@ -2216,7 +2262,9 @@ export function zombieExchange(
 
 // ---- Dead Hand Detection ----
 
-function validateTileCount(player: PlayerState, phase: GamePhase, isSiamese: boolean): DeadHandReason | null {
+function validateTileCount(player: PlayerState, phase: string, isSiamese: boolean): DeadHandReason | null {
+  if (isSiamese) return null;
+
   const handTiles = player.hand.length;
   const exposedTiles = player.exposures.reduce((sum, e) => sum + e.tiles.length, 0);
   const total = handTiles + exposedTiles;

@@ -49,6 +49,7 @@ import {
   resolveCallingPhase,
   botCallingDecision,
   swapJoker,
+  moveExposure,
   zombieExchange,
   challengeHand,
   initiatePlayAgain,
@@ -596,6 +597,22 @@ export function setupSocket(httpServer: HttpServer): Server<ClientToServerEvents
       const result = swapJoker(roomCode, socket.id, myTileId, targetSeat, exposureIndex);
       if (!result.success) {
         socket.emit("error", { message: result.error || "Cannot swap Joker" });
+        return;
+      }
+
+      broadcastState(io, roomCode);
+    });
+
+    socket.on("game:move-exposure", ({ fromSeat, toSeat, exposureIndex }) => {
+      const roomCode = playerRooms.get(socket.id);
+      if (!roomCode) {
+        socket.emit("error", { message: "Not in a room" });
+        return;
+      }
+
+      const result = moveExposure(roomCode, socket.id, fromSeat, toSeat, exposureIndex);
+      if (!result.success) {
+        socket.emit("error", { message: result.error || "Cannot move exposure" });
         return;
       }
 
