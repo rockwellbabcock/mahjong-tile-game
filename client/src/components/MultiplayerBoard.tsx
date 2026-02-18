@@ -1229,7 +1229,7 @@ export function MultiplayerBoard({
                       return (
                         <div
                           key={tile.id}
-                          draggable={isMyTurn && (gameState.phase === "draw" || gameState.phase === "discard")}
+                          draggable
                           onDragStart={(e) => handleDragStart(e, idx, "main")}
                           onDragEnd={handleDragEnd}
                           onDragOver={(e) => handleDragOver(e, idx, "main")}
@@ -1317,7 +1317,7 @@ export function MultiplayerBoard({
                       return (
                         <div
                           key={tile.id}
-                          draggable={isMyTurn && (gameState.phase === "draw" || gameState.phase === "discard")}
+                          draggable
                           onDragStart={(e) => handleDragStart(e, idx, "partner")}
                           onDragEnd={handleDragEnd}
                           onDragOver={(e) => handleDragOver(e, idx, "partner")}
