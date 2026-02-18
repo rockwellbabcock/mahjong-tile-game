@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import GamePage from "@/pages/Game";
+import { FeedbackButton } from "@/components/FeedbackButton";
 
 function Router() {
   return (
@@ -21,6 +22,7 @@ function App() {
       <TooltipProvider>
         <Toaster />
         <Router />
+        <FeedbackButton />
       </TooltipProvider>
     </QueryClientProvider>
   );

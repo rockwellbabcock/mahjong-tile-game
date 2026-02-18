@@ -13,6 +13,18 @@ export const insertGameSchema = createInsertSchema(games).omit({ id: true, creat
 export type Game = typeof games.$inferSelect;
 export type InsertGame = z.infer<typeof insertGameSchema>;
 
+export const feedback = pgTable("feedback", {
+  id: serial("id").primaryKey(),
+  page: text("page").notNull(),
+  message: text("message").notNull(),
+  createdAt: text("created_at").notNull().$defaultFn(() => new Date().toISOString()),
+});
+
+export const insertFeedbackSchema = createInsertSchema(feedback).omit({ id: true, createdAt: true });
+
+export type Feedback = typeof feedback.$inferSelect;
+export type InsertFeedback = z.infer<typeof insertFeedbackSchema>;
+
 // --- Game Logic Types (Shared) ---
 
 export type Suit = "Bam" | "Crak" | "Dot" | "Wind" | "Dragon" | "Flower" | "Joker" | "Blank";
